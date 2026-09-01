@@ -46,9 +46,14 @@ const TrainerDashboard: React.FC<TrainerDashboardProps> = ({ setActiveTab }) => 
         </div>
         
         <div className="bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-850 px-4 py-2.5 rounded-xl text-right">
-          <p className="text-[10px] text-slate-455 dark:text-slate-500 font-bold uppercase tracking-wider">Contract Profile</p>
+          <div className="flex items-center gap-2 justify-end">
+            <p className="text-[10px] text-slate-455 dark:text-slate-500 font-bold uppercase tracking-wider">Contract Profile</p>
+            <span className="font-mono text-[9px] font-black px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+              ID: {trainer.individualId || trainer.id}
+            </span>
+          </div>
           <p className="text-xs font-black text-rose-600 dark:text-rose-500 mt-0.5 whitespace-nowrap">
-            {trainer.rate > 0 ? `₹${trainer.rate}/hour (Hourly)` : `₹${trainer.fixedSalary.toLocaleString()}/mo (Fixed)`}
+            {trainer.rate > 0 ? 'Hourly Engagement Contract' : 'Fixed Retainer Contract'}
           </p>
         </div>
       </div>
@@ -81,13 +86,13 @@ const TrainerDashboard: React.FC<TrainerDashboardProps> = ({ setActiveTab }) => 
 
             <div className="bg-white dark:bg-zinc-900 border border-slate-150 dark:border-zinc-800/80 rounded-2xl p-5 cursor-pointer hover:border-rose-500/40 dark:hover:border-rose-900/40 transition shadow-sm" onClick={() => setActiveTab('t_salary')}>
               <div className="flex justify-between items-center text-slate-400 dark:text-slate-500 mb-3">
-                <span className="text-[10px] font-bold uppercase tracking-wider">Estimated Pay</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider">Settlement Status</span>
                 <Landmark size={16} className="text-rose-500" />
               </div>
-              <p className="text-2xl font-black text-rose-600 dark:text-rose-500 whitespace-nowrap">
-                ₹{trainer.rate > 0 ? (mtdHours * trainer.rate).toLocaleString() : trainer.fixedSalary.toLocaleString()}
+              <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
+                Active Cycle
               </p>
-              <p className="text-[10px] text-slate-455 dark:text-slate-500 mt-1 font-medium">Click to view payouts terms</p>
+              <p className="text-[10px] text-slate-455 dark:text-slate-500 mt-1 font-medium">Click to view settlement ledger</p>
             </div>
           </div>
 

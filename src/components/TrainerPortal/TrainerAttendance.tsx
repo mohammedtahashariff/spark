@@ -293,7 +293,10 @@ const TrainerAttendance: React.FC = () => {
                       <div className="w-12 h-12 rounded-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 flex items-center justify-center text-slate-400 dark:text-slate-500 mx-auto">
                         <Camera size={20} />
                       </div>
-                      <p className="text-[10px] text-slate-500 dark:text-slate-450 max-w-[155px] font-medium">Campus audit requires a secure biometric snapshot.</p>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-455 max-w-[155px] font-medium">Campus audit requires a secure biometric snapshot.</p>
+                      {cameraError && (
+                        <p className="text-[9px] text-amber-500 font-semibold italic">Camera fallback snapshot active.</p>
+                      )}
                       <button
                         type="button"
                         onClick={startCamera}

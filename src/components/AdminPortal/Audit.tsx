@@ -10,12 +10,17 @@ const Audit: React.FC = () => {
     switch (role) {
       case 'super_admin':
         return 'bg-red-500/10 text-rose-600 dark:text-red-400 border border-red-500/20';
+      case 'md':
       case 'management':
         return 'bg-purple-500/10 text-purple-650 dark:text-purple-400 border border-purple-500/20';
+      case 'coordinator':
+        return 'bg-cyan-500/10 text-cyan-650 dark:text-cyan-400 border border-cyan-500/20';
       case 'hr':
         return 'bg-indigo-500/10 text-indigo-650 dark:text-indigo-400 border border-indigo-500/20';
       case 'operations':
         return 'bg-blue-500/10 text-blue-650 dark:text-blue-400 border border-blue-500/20';
+      case 'finance':
+        return 'bg-emerald-500/10 text-emerald-650 dark:text-emerald-400 border border-emerald-500/20';
       case 'trainer':
         return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20';
       default:

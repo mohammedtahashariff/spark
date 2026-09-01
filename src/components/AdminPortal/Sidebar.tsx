@@ -27,18 +27,17 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
     { id: 't_salary', label: 'Earnings & Payslips', icon: Landmark },
     { id: 't_profile', label: 'My Profile', icon: User }
   ] : [
-    { id: 'dashboard', label: 'Dashboard', icon: Layout, roles: ['super_admin', 'management', 'hr', 'finance', 'operations'] },
-    { id: 'trainers', label: 'Trainer Profiles', icon: Users, roles: ['super_admin', 'management', 'hr'] },
-    { id: 'operations', label: 'Training Ops', icon: Calendar, roles: ['super_admin', 'management', 'operations'] },
-    { id: 'attendance', label: 'Attendance Feed', icon: MapPin, roles: ['super_admin', 'management', 'hr'] },
-    { id: 'finance', label: 'Invoices & Quotes', icon: Receipt, roles: ['super_admin', 'management', 'finance'] },
-    { id: 'payroll', label: 'Trainer Payroll', icon: Landmark, roles: ['super_admin', 'management', 'finance', 'hr'] },
-    { id: 'expenses', label: 'Reimbursements', icon: CreditCard, roles: ['super_admin', 'management', 'finance', 'hr'] },
-    { id: 'approvals', label: 'Approval Center', icon: ShieldCheck, roles: ['super_admin', 'management', 'hr', 'finance', 'operations'] },
+    { id: 'dashboard', label: 'Dashboard', icon: Layout, roles: ['super_admin', 'md', 'coordinator', 'hr', 'finance', 'operations', 'management'] },
+    { id: 'trainers', label: 'Trainer Profiles', icon: Users, roles: ['super_admin', 'md', 'coordinator', 'hr', 'management'] },
+    { id: 'operations', label: 'Training Ops', icon: Calendar, roles: ['super_admin', 'md', 'coordinator', 'operations', 'management'] },
+    { id: 'attendance', label: 'Attendance Feed', icon: MapPin, roles: ['super_admin', 'md', 'coordinator', 'hr', 'management'] },
+    { id: 'finance', label: 'Invoices & Quotes', icon: Receipt, roles: ['super_admin', 'md', 'finance', 'management'] },
+    { id: 'payroll', label: 'Trainer Payroll', icon: Landmark, roles: ['super_admin', 'md', 'finance', 'hr', 'management'] },
+    { id: 'expenses', label: 'Reimbursements', icon: CreditCard, roles: ['super_admin', 'md', 'finance', 'hr', 'management'] },
+    { id: 'approvals', label: 'Approval Center', icon: ShieldCheck, roles: ['super_admin', 'md', 'coordinator', 'hr', 'finance', 'operations', 'management'] },
     { id: 'settings', label: 'Settings', icon: Settings, roles: ['super_admin'] },
-    { id: 'audit', label: 'Security Audit', icon: ShieldAlert, roles: ['super_admin', 'management'] }
+    { id: 'audit', label: 'Security Audit', icon: ShieldAlert, roles: ['super_admin', 'md', 'management'] }
   ];
-
 
   const filteredItems = currentUser?.role === 'trainer'
     ? menuItems

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useDatabase } from '../../context/DatabaseContext';
-import { Plus, Search, FileText, CheckCircle, Clock, X } from 'lucide-react';
+import { Plus, Search, UserCheck, X } from 'lucide-react';
 import type { Trainer } from '../../types';
 
 
@@ -11,6 +11,7 @@ const Trainers: React.FC = () => {
   const [showAddModal, setShowAddModal] = useState(false);
 
   // Form State for Adding
+  const [individualId, setIndividualId] = useState('');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -22,7 +23,10 @@ const Trainers: React.FC = () => {
     e.preventDefault();
     if (!name || !email || !phone) return;
 
+    const nextId = individualId.trim() || `TRN-2026-${String(trainers.length + 1).padStart(3, '0')}`;
+
     addTrainer({
+      individualId: nextId,
       name,
       email,
       phone,
@@ -38,6 +42,7 @@ const Trainers: React.FC = () => {
     });
 
     // Reset fields
+    setIndividualId('');
     setName('');
     setEmail('');
     setPhone('');
@@ -145,7 +150,12 @@ const Trainers: React.FC = () => {
                 }`}
               >
                 <div className="space-y-1">
-                  <h4 className={`font-bold text-sm ${selectedTrainer?.id === t.id ? 'text-rose-600 dark:text-rose-455' : 'text-slate-800 dark:text-slate-200'}`}>{t.name}</h4>
+                  <div className="flex items-center gap-2">
+                    <h4 className={`font-bold text-sm ${selectedTrainer?.id === t.id ? 'text-rose-600 dark:text-rose-455' : 'text-slate-800 dark:text-slate-200'}`}>{t.name}</h4>
+                    <span className="font-mono text-[9px] font-black px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                      {t.individualId || t.id}
+                    </span>
+                  </div>
                   <p className="text-xs text-slate-500 dark:text-slate-400">{t.email} • {t.phone}</p>
                   <div className="flex flex-wrap gap-1 mt-1.5">
                     {t.skills.slice(0, 3).map((s, idx) => (
@@ -165,8 +175,8 @@ const Trainers: React.FC = () => {
                   }`}>
                     {t.status}
                   </span>
-                  <p className="text-xs font-semibold text-slate-700 dark:text-slate-400">
-                    {t.rate > 0 ? `₹${t.rate}/hr` : `Fixed: ₹${t.fixedSalary.toLocaleString()}`}
+                  <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                    {t.rate > 0 ? 'Hourly Contract' : 'Fixed Retainer'}
                   </p>
                 </div>
               </div>
@@ -186,7 +196,12 @@ const Trainers: React.FC = () => {
                 {/* Trainer Header */}
                 <div className="flex justify-between items-start border-b border-slate-100 dark:border-zinc-800 pb-3">
                   <div>
-                    <h3 className="text-md font-bold text-slate-800 dark:text-white leading-tight">{selectedTrainer.name}</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-md font-bold text-slate-800 dark:text-white leading-tight">{selectedTrainer.name}</h3>
+                      <span className="font-mono text-[9px] font-black px-1.5 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-rose-600 dark:text-rose-400 border border-slate-200 dark:border-zinc-700">
+                        {selectedTrainer.individualId || selectedTrainer.id}
+                      </span>
+                    </div>
                     <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 font-semibold">Status Checklist</p>
                   </div>
                   <select
@@ -203,6 +218,10 @@ const Trainers: React.FC = () => {
                 {/* Trainer Details */}
                 <div className="bg-slate-50 dark:bg-zinc-950 border border-slate-150 dark:border-zinc-850/80 rounded-xl p-3.5 space-y-2 text-xs font-medium">
                   <div className="flex justify-between">
+                    <span className="text-slate-500 dark:text-slate-400">Trainer Individual ID</span>
+                    <span className="font-mono font-bold text-rose-600 dark:text-rose-400">{selectedTrainer.individualId || selectedTrainer.id}</span>
+                  </div>
+                  <div className="flex justify-between">
                     <span className="text-slate-500 dark:text-slate-400">Contact Email</span>
                     <span className="font-bold text-slate-800 dark:text-slate-200">{selectedTrainer.email}</span>
                   </div>
@@ -211,12 +230,12 @@ const Trainers: React.FC = () => {
                     <span className="font-bold text-slate-800 dark:text-slate-200">{selectedTrainer.phone}</span>
                   </div>
                   <div className="flex justify-between border-t border-slate-200 dark:border-zinc-800 pt-2 mt-1">
-                    <span className="text-slate-500 dark:text-slate-400">Hourly Rate</span>
-                    <span className="font-bold text-blue-600 dark:text-blue-400">₹{selectedTrainer.rate}/hr</span>
+                    <span className="text-slate-500 dark:text-slate-400">Contract Engagement</span>
+                    <span className="font-bold text-rose-600 dark:text-rose-400">{selectedTrainer.rate > 0 ? 'Hourly Billing Contract' : 'Fixed Retainer Contract'}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-500 dark:text-slate-400">Fixed Contract</span>
-                    <span className="font-bold text-purple-600 dark:text-purple-400">₹{selectedTrainer.fixedSalary.toLocaleString()}/mo</span>
+                    <span className="text-slate-500 dark:text-slate-400">Compliance & TDS</span>
+                    <span className="font-bold text-emerald-600 dark:text-emerald-400">TDS Applicable</span>
                   </div>
                 </div>
 
@@ -234,18 +253,14 @@ const Trainers: React.FC = () => {
                         <div className="flex items-center gap-1.5 shrink-0">
                           <select
                             value={doc.status}
-                            onChange={(e) => handleUpdateDocumentStatus(selectedTrainer.id, doc.documentNumber, e.target.value as any)}
-                            className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-[10px] font-bold text-slate-700 dark:text-slate-300 rounded p-1 outline-none"
+                            onChange={(e) => handleUpdateDocumentStatus(selectedTrainer.id, doc.name, e.target.value as any)}
+                            className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-[10px] font-bold text-slate-750 dark:text-white rounded p-1 outline-none"
                           >
-                            <option value="Draft">Draft</option>
-                            <option value="Review">Review</option>
-                            <option value="Approved">Approved</option>
+                            <option value="Pending">Pending</option>
+                            <option value="Submitted">Submitted</option>
+                            <option value="Verified">Verified</option>
+                            <option value="Rejected">Rejected</option>
                           </select>
-                          {doc.status === 'Approved' ? (
-                            <CheckCircle size={14} className="text-emerald-500" />
-                          ) : (
-                            <Clock size={14} className="text-amber-500 animate-pulse" />
-                          )}
                         </div>
                       </div>
                     ))}
@@ -253,15 +268,28 @@ const Trainers: React.FC = () => {
                 </div>
               </div>
 
-              <p className="text-[10px] text-slate-400 dark:text-slate-500 border-t border-slate-100 dark:border-zinc-800 pt-3 italic text-center font-medium">
-                Digital Trainer File holds full appointment & credential details.
-              </p>
+              {/* Action Buttons */}
+              <div className="pt-3 border-t border-slate-100 dark:border-zinc-800 flex gap-2">
+                <button
+                  onClick={() => handleUpdateTrainerStatus(selectedTrainer.id, 'Active')}
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl py-2.5 font-bold text-xs transition shadow-sm"
+                >
+                  Approve Clearance
+                </button>
+                <button
+                  onClick={() => handleUpdateTrainerStatus(selectedTrainer.id, 'Suspended')}
+                  className="bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400 text-slate-600 dark:text-slate-350 rounded-xl px-4 py-2.5 font-bold text-xs transition"
+                >
+                  Lock
+                </button>
+              </div>
+
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-center text-slate-400 dark:text-slate-500">
-              <FileText size={40} className="text-slate-300 dark:text-zinc-800 mb-2" />
-              <p className="text-xs font-bold text-slate-750 dark:text-slate-350">No Trainer Selected</p>
-              <p className="text-[10px] text-slate-400 dark:text-slate-500 max-w-[160px] mt-0.5 font-medium">Select a trainer from the roster to inspect details.</p>
+              <UserCheck size={36} className="text-slate-300 dark:text-zinc-800 mb-2" />
+              <p className="text-xs font-bold text-slate-800 dark:text-white">No Trainer Selected</p>
+              <p className="text-[10px] text-slate-400 dark:text-slate-500 max-w-[170px] mt-0.5 font-medium">Select a trainer profile on the left to review documents & details.</p>
             </div>
           )}
         </div>
@@ -284,6 +312,16 @@ const Trainers: React.FC = () => {
             <form onSubmit={handleAddTrainer} className="space-y-4 text-xs text-slate-700 dark:text-slate-300">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
+                  <label className="text-slate-500 dark:text-slate-400 font-semibold">Trainer Individual ID</label>
+                  <input
+                    type="text"
+                    value={individualId}
+                    onChange={(e) => setIndividualId(e.target.value)}
+                    placeholder={`e.g. TRN-2026-${String(trainers.length + 1).padStart(3, '0')}`}
+                    className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg p-2.5 text-slate-800 dark:text-white outline-none focus:border-rose-500 font-mono font-bold"
+                  />
+                </div>
+                <div className="space-y-1">
                   <label className="text-slate-500 dark:text-slate-400 font-semibold">Full Name *</label>
                   <input
                     type="text"
@@ -294,6 +332,9 @@ const Trainers: React.FC = () => {
                     className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg p-2.5 text-slate-800 dark:text-white outline-none focus:border-rose-500 font-medium"
                   />
                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-slate-500 dark:text-slate-400 font-semibold">Email Address *</label>
                   <input
@@ -301,13 +342,10 @@ const Trainers: React.FC = () => {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="david@devlustro.com"
+                    placeholder="david@spark.com"
                     className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg p-2.5 text-slate-800 dark:text-white outline-none focus:border-rose-500 font-medium"
                   />
                 </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-slate-500 dark:text-slate-400 font-semibold">Phone Number *</label>
                   <input
@@ -319,38 +357,36 @@ const Trainers: React.FC = () => {
                     className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg p-2.5 text-slate-800 dark:text-white outline-none focus:border-rose-500 font-medium"
                   />
                 </div>
-                <div className="space-y-1">
-                  <label className="text-slate-500 dark:text-slate-400 font-semibold">Status</label>
-                  <input
-                    type="text"
-                    disabled
-                    value="Onboarding (Pending Checklist)"
-                    className="w-full bg-slate-100 dark:bg-zinc-850 border border-slate-200 dark:border-zinc-800 rounded-lg p-2.5 text-slate-500 dark:text-slate-400 outline-none font-semibold"
-                  />
-                </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-slate-500 dark:text-slate-400 font-semibold">Hourly Rate (₹)</label>
-                  <input
-                    type="number"
-                    value={rate}
-                    onChange={(e) => setRate(e.target.value)}
-                    placeholder="500"
-                    className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg p-2.5 text-slate-800 dark:text-white outline-none focus:border-rose-500 font-medium"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-slate-500 dark:text-slate-400 font-semibold">Fixed Salary (₹/mo)</label>
-                  <input
-                    type="number"
-                    value={fixedSalary}
-                    onChange={(e) => setFixedSalary(e.target.value)}
-                    placeholder="80000"
-                    className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg p-2.5 text-slate-800 dark:text-white outline-none focus:border-rose-500 font-medium"
-                  />
-                </div>
+              <div className="space-y-1">
+                <label className="text-slate-500 dark:text-slate-400 font-semibold">Status</label>
+                <input
+                  type="text"
+                  disabled
+                  value="Onboarding (Pending Checklist)"
+                  className="w-full bg-slate-100 dark:bg-zinc-850 border border-slate-200 dark:border-zinc-800 rounded-lg p-2.5 text-slate-500 dark:text-slate-400 outline-none font-semibold"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-slate-500 dark:text-slate-400 font-semibold">Contract Type</label>
+                <select
+                  value={rate ? 'hourly' : 'fixed'}
+                  onChange={(e) => {
+                    if (e.target.value === 'hourly') {
+                      setRate('500');
+                      setFixedSalary('0');
+                    } else {
+                      setRate('0');
+                      setFixedSalary('80000');
+                    }
+                  }}
+                  className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg p-2.5 text-slate-800 dark:text-white outline-none focus:border-rose-500 font-medium text-xs"
+                >
+                  <option value="hourly">Hourly Engagement Contract</option>
+                  <option value="fixed">Fixed Retainer Monthly Contract</option>
+                </select>
               </div>
 
               <div className="space-y-1">

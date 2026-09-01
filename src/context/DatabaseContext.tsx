@@ -76,7 +76,8 @@ export function calculateDistance(lat1: number, lon1: number, lat2: number, lon2
 
 const DEFAULT_USERS: User[] = [
   { id: 'u1', name: 'Arjun Dev (Super Admin)', email: 'superadmin@spark.com', role: 'super_admin', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80' },
-  { id: 'u2', name: 'Deepika Rao (Director)', email: 'management@spark.com', role: 'management', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80' },
+  { id: 'u2', name: 'Deepika Rao (MD)', email: 'md@spark.com', role: 'md', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80' },
+  { id: 'u7', name: 'Pooja Sharma (Coordinator)', email: 'coordinator@spark.com', role: 'coordinator', avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&auto=format&fit=crop&q=80' },
   { id: 'u3', name: 'Sunitha Krishnan (HR Manager)', email: 'hr@spark.com', role: 'hr', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80' },
   { id: 'u4', name: 'Venkat Ramakrishnan (Finance)', email: 'finance@spark.com', role: 'finance', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80' },
   { id: 'u5', name: 'Suresh Nair (Ops Manager)', email: 'ops@spark.com', role: 'operations', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&auto=format&fit=crop&q=80' },
@@ -86,6 +87,7 @@ const DEFAULT_USERS: User[] = [
 const DEFAULT_TRAINERS: Trainer[] = [
   {
     id: 't1',
+    individualId: 'TRN-2026-001',
     name: 'Rajesh Kumar',
     email: 'trainer@spark.com',
     phone: '+91 98450 12345',
@@ -101,6 +103,7 @@ const DEFAULT_TRAINERS: Trainer[] = [
   },
   {
     id: 't2',
+    individualId: 'TRN-2026-002',
     name: 'Dr. Ananya Sharma',
     email: 'ananya.sharma@sparkedutech.com',
     phone: '+91 98860 54321',
@@ -115,6 +118,7 @@ const DEFAULT_TRAINERS: Trainer[] = [
   },
   {
     id: 't3',
+    individualId: 'TRN-2026-003',
     name: 'Amit Patel',
     email: 'amit.patel@sparkedutech.com',
     phone: '+91 99000 98765',
@@ -423,8 +427,15 @@ export const DatabaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const localAudit = localStorage.getItem('spk_audit');
     const localCurrentUser = localStorage.getItem('spk_current_user');
 
-    if (localTrainers) setTrainers(JSON.parse(localTrainers));
-    else {
+    if (localTrainers) {
+      const parsed: Trainer[] = JSON.parse(localTrainers);
+      const migrated = parsed.map((t, idx) => ({
+        ...t,
+        individualId: t.individualId || `TRN-2026-${String(idx + 1).padStart(3, '0')}`
+      }));
+      setTrainers(migrated);
+      localStorage.setItem('spk_trainers', JSON.stringify(migrated));
+    } else {
       setTrainers(DEFAULT_TRAINERS);
       localStorage.setItem('spk_trainers', JSON.stringify(DEFAULT_TRAINERS));
     }
@@ -505,7 +516,14 @@ export const DatabaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
 
     if (localCurrentUser) {
-      setCurrentUserState(JSON.parse(localCurrentUser));
+      const parsedUser = JSON.parse(localCurrentUser);
+      if (parsedUser.role === 'management') {
+        parsedUser.role = 'md';
+        parsedUser.name = 'Deepika Rao (MD)';
+        parsedUser.email = 'md@spark.com';
+        localStorage.setItem('spk_current_user', JSON.stringify(parsedUser));
+      }
+      setCurrentUserState(parsedUser);
     }
   }, []);
 
@@ -545,7 +563,8 @@ export const DatabaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const login = (email: string, role: UserRole): boolean => {
-    const user = DEFAULT_USERS.find(u => u.email === email && u.role === role);
+    const normalizedRole = (role as string) === 'management' ? 'md' : role;
+    const user = DEFAULT_USERS.find(u => (u.email === email || (role === 'md' && u.email === 'md@spark.com')) && u.role === normalizedRole);
     if (user) {
       setCurrentUser(user);
       return true;
@@ -554,7 +573,7 @@ export const DatabaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       id: 'u_' + Date.now(),
       name: email.split('@')[0].toUpperCase(),
       email,
-      role,
+      role: normalizedRole,
       avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&auto=format&fit=crop&q=80'
     };
     setCurrentUser(fallbackUser);
@@ -569,16 +588,18 @@ export const DatabaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const addTrainer = (newTrainer: Omit<Trainer, 'id'>) => {
+    const nextSeq = trainers.length + 1;
     const trainer: Trainer = {
       ...newTrainer,
-      id: 't_' + Date.now()
+      id: 't_' + Date.now(),
+      individualId: newTrainer.individualId || `TRN-2026-${String(nextSeq).padStart(3, '0')}`
     };
     setTrainers(prev => {
       const updated = [...prev, trainer];
       localStorage.setItem('spk_trainers', JSON.stringify(updated));
       return updated;
     });
-    addAuditLog('Trainer Added', `HR onboarding initiated for trainer ${trainer.name} (${trainer.email})`);
+    addAuditLog('Trainer Added', `HR onboarding initiated for trainer ${trainer.name} (ID: ${trainer.individualId})`);
   };
 
   const updateTrainer = (updatedTrainer: Trainer) => {

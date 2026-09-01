@@ -42,7 +42,12 @@ const MobileDashboard: React.FC<MobileDashboardProps> = ({ setActiveTab }) => {
       <div className="flex items-center justify-between">
         <div>
           <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Spark Operations</p>
-          <h2 className="text-md font-bold text-white tracking-wide">{trainer.name}</h2>
+          <div className="flex items-center gap-2 mt-0.5">
+            <h2 className="text-md font-bold text-white tracking-wide">{trainer.name}</h2>
+            <span className="font-mono text-[9px] font-black px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30">
+              ID: {trainer.individualId || trainer.id}
+            </span>
+          </div>
         </div>
         <img
           src={currentUser?.avatar || "https://via.placeholder.com/150"}
@@ -167,21 +172,21 @@ const MobileDashboard: React.FC<MobileDashboardProps> = ({ setActiveTab }) => {
         )}
       </div>
 
-      {/* Quick Pay Estimate Widget */}
+      {/* Settlement & Cycle Status Widget */}
       <div 
         onClick={() => setActiveTab('salary')}
         className="bg-gradient-to-r from-rose-950/20 to-slate-900 border border-rose-900/15 rounded-xl p-4 flex items-center justify-between cursor-pointer hover:border-rose-900/40 transition"
       >
         <div>
-          <p className="text-[9px] text-rose-455 font-bold uppercase tracking-wider">Estimated Pay (MTD)</p>
-          <p className="text-lg font-black text-rose-455 mt-0.5">
-            ₹{trainer.rate > 0 ? (mtdHours * trainer.rate).toLocaleString() : trainer.fixedSalary.toLocaleString()}
+          <p className="text-[9px] text-rose-455 font-bold uppercase tracking-wider">Settlement Cycle</p>
+          <p className="text-sm font-black text-white mt-0.5">
+            Active · August 2026
           </p>
         </div>
         <div className="text-right">
-          <p className="text-[9px] text-slate-500">Contract Rate</p>
-          <p className="text-[11px] font-bold text-slate-300 mt-0.5">
-            {trainer.rate > 0 ? `₹${trainer.rate}/hr` : `Fixed: ₹${trainer.fixedSalary}/mo`}
+          <p className="text-[9px] text-slate-500">Delivered MTD</p>
+          <p className="text-[11px] font-bold text-emerald-400 mt-0.5">
+            {mtdHours} Approved Hours
           </p>
         </div>
       </div>

@@ -54,6 +54,11 @@ const TrainerProfile: React.FC = () => {
 
             <div>
               <h3 className="text-md font-bold text-slate-800 dark:text-white leading-tight">{trainer.name}</h3>
+              <div className="mt-1 flex items-center justify-center gap-1.5">
+                <span className="font-mono text-[9px] font-black px-2 py-0.5 rounded bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                  ID: {trainer.individualId || trainer.id}
+                </span>
+              </div>
               <p className="text-[10px] text-slate-550 dark:text-slate-500 font-bold uppercase tracking-wider mt-1">Professional Education Trainer</p>
             </div>
 

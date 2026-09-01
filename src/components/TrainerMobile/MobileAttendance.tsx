@@ -473,7 +473,7 @@ const MobileAttendance: React.FC = () => {
         )}
         {isLocating && <span className="text-[10px] text-blue-400 font-semibold animate-pulse block text-center">Locating...</span>}
         {gpsError && <p className="text-[9px] text-amber-500 italic mt-1 text-center">{gpsError}</p>}
-      </div>>
+      </div>
 
       {/* Submit Button */}
       <button

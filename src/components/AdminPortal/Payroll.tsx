@@ -4,9 +4,13 @@ import { Check, Play, FileText, ShieldAlert } from 'lucide-react';
 
 
 const Payroll: React.FC = () => {
-  const { payrollRuns, payslips, createPayrollRun, approvePayrollRun, payPayrollRun } = useDatabase();
+  const { payrollRuns, payslips, trainers, createPayrollRun, approvePayrollRun, payPayrollRun } = useDatabase();
   const [selectedMonth, setSelectedMonth] = useState('2026-08');
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
+
+  const getTrainerIndividualId = (trainerId: string) => {
+    return trainers.find(t => t.id === trainerId)?.individualId || trainerId;
+  };
 
   const handleGeneratePayroll = (e: React.FormEvent) => {
     e.preventDefault();
@@ -135,21 +139,35 @@ const Payroll: React.FC = () => {
                         <th className="p-3">Terms</th>
                         <th className="p-3 text-center">Class Hours</th>
                         <th className="p-3 text-right">Expenses (₹)</th>
+                        <th className="p-3 text-right">
+                          <span className="inline-flex items-center gap-1">
+                            <span className="px-1 py-0.5 rounded text-[8px] bg-rose-500/10 text-rose-600 dark:text-rose-400 font-black border border-rose-500/20">TDS</span>
+                            Deductions (₹)
+                          </span>
+                        </th>
                         <th className="p-3 text-right">Net Pay (₹)</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
                       {activeSlips.map(slip => (
                         <tr key={slip.id} className="hover:bg-slate-50/50 dark:hover:bg-zinc-950/20 transition">
-                          <td className="p-3 font-bold text-slate-800 dark:text-slate-200">{slip.trainerName}</td>
+                          <td className="p-3">
+                            <p className="font-bold text-slate-800 dark:text-slate-200">{slip.trainerName}</p>
+                            <span className="font-mono text-[9px] font-bold text-rose-600 dark:text-rose-400 bg-rose-500/10 px-1 rounded">
+                              {getTrainerIndividualId(slip.trainerId)}
+                            </span>
+                          </td>
                           <td className="p-3 text-slate-500 dark:text-slate-400 font-semibold">
-                            {slip.hourlyRate > 0 ? `₹${slip.hourlyRate}/hr` : `Fixed: ₹${slip.fixedSalary.toLocaleString()}`}
+                            {slip.hourlyRate > 0 ? 'Hourly Contract' : 'Fixed Retainer'}
                           </td>
                           <td className="p-3 text-center font-semibold text-slate-600 dark:text-slate-350">
                             {slip.hourlyRate > 0 ? `${slip.hourlyHours} hrs` : 'N/A'}
                           </td>
-                          <td className="p-3 text-right text-rose-500 font-bold">
+                          <td className="p-3 text-right text-emerald-600 dark:text-emerald-400 font-bold">
                             ₹{slip.approvedExpenses.toLocaleString()}
+                          </td>
+                          <td className="p-3 text-right text-rose-600 dark:text-rose-500 font-bold">
+                            - ₹{slip.deductions.toLocaleString()}
                           </td>
                           <td className="p-3 text-right font-black text-slate-850 dark:text-slate-100">
                             ₹{slip.netSalary.toLocaleString()}

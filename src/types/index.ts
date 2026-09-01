@@ -1,4 +1,4 @@
-export type UserRole = 'super_admin' | 'management' | 'hr' | 'finance' | 'operations' | 'trainer';
+export type UserRole = 'super_admin' | 'md' | 'coordinator' | 'hr' | 'finance' | 'operations' | 'trainer' | 'management';
 
 export interface User {
   id: string;
@@ -10,6 +10,7 @@ export interface User {
 
 export interface Trainer {
   id: string;
+  individualId: string; // e.g. "TRN-2026-001"
   name: string;
   email: string;
   phone: string;

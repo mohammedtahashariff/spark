@@ -50,6 +50,11 @@ const MobileProfile: React.FC<MobileProfileProps> = ({ setActiveTab }) => {
         />
 
         <h3 className="text-sm font-bold text-white mt-2.5">{trainer.name}</h3>
+        <div className="mt-1 flex items-center justify-center gap-1.5">
+          <span className="font-mono text-[9px] font-black px-2 py-0.5 rounded bg-rose-500/15 text-rose-455 border border-rose-500/20">
+            ID: {trainer.individualId || trainer.id}
+          </span>
+        </div>
         <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Professional Trainer</p>
 
         {/* Contact details */}

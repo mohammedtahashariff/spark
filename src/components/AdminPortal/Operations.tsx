@@ -448,7 +448,7 @@ const Operations: React.FC = () => {
                   >
                     <option value="">Select Trainer</option>
                     {trainers.filter(t => t.status === 'Active').map(t => (
-                      <option key={t.id} value={t.id}>{t.name}</option>
+                      <option key={t.id} value={t.id}>{t.name} ({t.individualId || t.id})</option>
                     ))}
                   </select>
                 </div>
