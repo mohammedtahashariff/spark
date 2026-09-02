@@ -1,11 +1,32 @@
 export type UserRole = 'super_admin' | 'md' | 'coordinator' | 'hr' | 'finance' | 'operations' | 'trainer' | 'management';
 
+export interface LoginHistoryItem {
+  id: string;
+  date: string;
+  time: string;
+  device: string;
+  ipAddress: string;
+  status: 'Successful' | 'Failed';
+}
+
 export interface User {
   id: string;
   name: string;
   email: string;
   role: UserRole;
   avatar?: string;
+  lastLoginAt?: string;
+  sessionExpiresAt?: number;
+  loginHistory?: LoginHistoryItem[];
+}
+
+export interface TrainerDocument {
+  category: string;
+  name: string;
+  status: 'Draft' | 'Review' | 'Approved' | 'Issued' | 'Archived';
+  documentNumber: string;
+  uploadedAt: string;
+  expiryDate?: string;
 }
 
 export interface Trainer {
@@ -18,13 +39,14 @@ export interface Trainer {
   rate: number;
   fixedSalary: number;
   skills: string[];
-  documents: {
-    category: string;
-    name: string;
-    status: 'Draft' | 'Review' | 'Approved' | 'Issued' | 'Archived';
-    documentNumber: string;
-    uploadedAt: string;
-  }[];
+  dateOfJoining: string; // YYYY-MM-DD or Formatted string
+  resumeUrl?: string;
+  resumeName?: string;
+  resumeUploadedAt?: string;
+  resumeSize?: string;
+  lastLoginAt?: string;
+  loginHistory?: LoginHistoryItem[];
+  documents: TrainerDocument[];
 }
 
 export interface ClientSite {
@@ -34,6 +56,9 @@ export interface ClientSite {
   longitude: number;
   geofenceRadius: number; // in meters
   address: string;
+  contactPerson?: string;
+  contactNumber?: string;
+  status?: 'Active' | 'Inactive';
 }
 
 export interface ClassReport {
@@ -74,6 +99,7 @@ export interface AttendanceRecord {
   latitude: number;
   longitude: number;
   gpsAccuracy: number;
+  locationAddress?: string;
   siteId: string;
   siteName: string;
   distanceFromSite: number;
@@ -104,6 +130,8 @@ export interface ScheduleChangeRequest {
   reviewRemarks?: string;
 }
 
+export type ReimbursementPaymentStatus = 'Pending' | 'Approved' | 'Processing' | 'Paid' | 'Failed' | 'Rejected' | 'Unpaid';
+
 export interface ExpenseClaim {
   id: string;
   trainerId: string;
@@ -111,11 +139,18 @@ export interface ExpenseClaim {
   date: string;
   category: 'Travel' | 'Food' | 'Accommodation' | 'Local Transport' | 'Other';
   amount: number;
+  approvedAmount?: number;
   purpose: string;
   siteId: string;
   siteName: string;
   receiptUrl?: string;
   status: 'Pending' | 'Approved' | 'Rejected';
+  paymentStatus: ReimbursementPaymentStatus;
+  paidAmount?: number;
+  paymentDate?: string;
+  paymentReference?: string;
+  paymentMethod?: 'Bank Transfer' | 'UPI' | 'Card' | 'Cheque' | string;
+  paidAt?: string;
   createdAt: string;
   reviewedBy?: string;
   reviewedAt?: string;
@@ -153,7 +188,9 @@ export interface PayrollRun {
 export interface InvoiceLineItem {
   description: string;
   quantity: number;
+  unit?: string;
   rate: number;
+  discount?: number;
   taxCode: string; // e.g. "GST 18%"
   taxAmount: number;
   total: number;
@@ -181,19 +218,27 @@ export interface Invoice {
   invoiceNumber: string;
   quotationId?: string;
   customerName: string;
+  customerAddress?: string;
+  customerTaxId?: string;
   siteId: string;
   siteName: string;
   date: string;
   dueDate: string;
   servicePeriod: string;
+  poNumber?: string;
+  contractRef?: string;
   lineItems: InvoiceLineItem[];
   subtotal: number;
   discount: number;
   taxTotal: number;
+  rounding?: number;
   totalAmount: number;
   amountPaid: number;
   outstandingBalance: number;
   status: 'Draft' | 'Approved' | 'Issued' | 'Part Paid' | 'Paid' | 'Overdue';
+  isLocked?: boolean;
+  issuedAt?: string;
+  approvedBy?: string;
 }
 
 export interface PaymentAllocation {
@@ -217,4 +262,27 @@ export interface AuditLog {
   details: string;
   ipAddress: string;
   deviceInfo: string;
+}
+
+export type RealTimeEventType = 
+  | 'ATTENDANCE_CHECKIN'
+  | 'ATTENDANCE_REVIEW'
+  | 'EXPENSE_SUBMIT'
+  | 'EXPENSE_REVIEW'
+  | 'EXPENSE_PAID'
+  | 'PAYROLL_STATUS'
+  | 'INVOICE_ISSUED'
+  | 'INVOICE_APPROVED'
+  | 'PAYMENT_RECEIVED'
+  | 'TRAINER_STATUS'
+  | 'SITE_ADDED'
+  | 'SCHEDULE_CHANGE';
+
+export interface RealTimeEvent {
+  id: string;
+  type: RealTimeEventType;
+  title: string;
+  message: string;
+  timestamp: string;
+  data?: any;
 }

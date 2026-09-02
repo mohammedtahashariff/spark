@@ -1,9 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useDatabase } from '../context/DatabaseContext';
-import { RefreshCw, Sun, Moon, Search, Bell } from 'lucide-react';
+import { Sun, Moon, Search, Bell, Clock, Radio, X } from 'lucide-react';
 import Sidebar from './AdminPortal/Sidebar';
 import Dashboard from './AdminPortal/Dashboard';
+import HRDashboard from './AdminPortal/HRDashboard';
 import Trainers from './AdminPortal/Trainers';
+import TrainingSitesManager from './AdminPortal/TrainingSitesManager';
 import Operations from './AdminPortal/Operations';
 import Attendance from './AdminPortal/Attendance';
 import Finance from './AdminPortal/Finance';
@@ -26,12 +28,23 @@ import BrandLogo from './BrandLogo';
 
 const SimulationShell: React.FC = () => {
   const { 
-    currentUser, setCurrentUser, users, resetDatabase, 
+    currentUser, setCurrentUser, users, logout,
     theme, toggleTheme, trainers, sites, schedules, invoices,
-    changeRequests, expenses, payrollRuns
+    expenses, attendanceRecords, realtimeEvents, 
+    latestEvent, showInactivityWarning, inactivitySecondsRemaining, 
+    extendSession
   } = useDatabase();
 
-  const [adminActiveTab, setAdminActiveTab] = useState<string>('t_dashboard');
+  const [adminActiveTab, setAdminActiveTabState] = useState<string>(() => {
+    const saved = localStorage.getItem('spk_active_tab');
+    if (saved) return saved;
+    return currentUser?.role === 'trainer' ? 't_dashboard' : (currentUser?.role === 'hr' ? 'hr_dashboard' : 'dashboard');
+  });
+
+  const setAdminActiveTab = (tab: string) => {
+    setAdminActiveTabState(tab);
+    localStorage.setItem('spk_active_tab', tab);
+  };
   
   // Header Search State
   const [searchQuery, setSearchQuery] = useState('');
@@ -42,24 +55,37 @@ const SimulationShell: React.FC = () => {
   const [showNotifications, setShowNotifications] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
 
+  // Live Toast State for Real-Time Events (Requirement 2)
+  const [toastEvent, setToastEvent] = useState<typeof latestEvent>(null);
+
+  useEffect(() => {
+    if (latestEvent) {
+      setToastEvent(latestEvent);
+      const timer = window.setTimeout(() => setToastEvent(null), 4500);
+      return () => window.clearTimeout(timer);
+    }
+  }, [latestEvent]);
+
   // Sync tab navigation on role switch
   const handleRoleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedUser = users.find(u => u.id === e.target.value);
     if (selectedUser) {
       setCurrentUser(selectedUser);
+      const nextTab = selectedUser.role === 'trainer' ? 't_dashboard' : (selectedUser.role === 'hr' ? 'hr_dashboard' : 'dashboard');
+      setAdminActiveTab(nextTab);
     }
   };
 
-  // Sync tab navigation on user role change or fresh login
+  // Validate tab compatibility when user role changes, without wiping tab on page refresh
   useEffect(() => {
-    if (currentUser) {
-      if (currentUser.role === 'trainer') {
-        setAdminActiveTab('t_dashboard');
-      } else {
-        setAdminActiveTab('dashboard');
-      }
+    if (!currentUser) return;
+    const isTrainerTab = adminActiveTab.startsWith('t_');
+    if (currentUser.role === 'trainer' && !isTrainerTab) {
+      setAdminActiveTab('t_dashboard');
+    } else if (currentUser.role !== 'trainer' && isTrainerTab) {
+      setAdminActiveTab(currentUser.role === 'hr' ? 'hr_dashboard' : 'dashboard');
     }
-  }, [currentUser]);
+  }, [currentUser?.role]);
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -79,51 +105,41 @@ const SimulationShell: React.FC = () => {
     return <Login />;
   }
 
-  // Compute dynamic mock notifications based on DB state
+  // Dynamic real-time notifications list
   const getNotifications = () => {
     const list: any[] = [];
-    
-    // Add pending schedule adjustments
-    changeRequests.filter(r => r.status === 'Pending').forEach(r => {
+
+    // Add recent real-time broadcast events
+    realtimeEvents.slice(0, 5).forEach(evt => {
       list.push({
-        id: `notif_sc_${r.id}`,
-        title: 'Schedule Change Pending',
-        desc: `${r.trainerName} requested a reschedule for ${r.courseName}`,
-        time: 'Just now',
-        tab: 'approvals'
+        id: evt.id,
+        title: evt.title,
+        desc: evt.message,
+        time: evt.timestamp,
+        tab: evt.type.includes('ATTENDANCE') ? 'attendance' : evt.type.includes('EXPENSE') ? 'expenses' : evt.type.includes('INVOICE') ? 'finance' : 'dashboard'
       });
     });
 
-    // Add pending attendance alerts
-    schedules.filter(s => s.status === 'Scheduled').slice(0, 1).forEach(s => {
+    // Add pending exception alerts
+    const exceptions = attendanceRecords.filter(r => r.verificationStatus === 'Review');
+    if (exceptions.length > 0) {
       list.push({
-        id: `notif_att_${s.id}`,
-        title: 'Upcoming Session Alert',
-        desc: `${s.courseName} scheduled today at ${s.startTime}`,
-        time: 'Today',
-        tab: currentUser?.role === 'trainer' ? 't_schedule' : 'operations'
+        id: 'notif_exc',
+        title: 'Geofence Exception Alert',
+        desc: `${exceptions.length} trainer check-in(s) flagged outside site boundary`,
+        time: 'Active',
+        tab: 'attendance'
       });
-    });
+    }
 
     // Add pending expense approvals
-    expenses.filter(e => e.status === 'Pending').forEach(e => {
+    expenses.filter(e => e.status === 'Pending').slice(0, 2).forEach(e => {
       list.push({
         id: `notif_exp_${e.id}`,
         title: 'Expense Claim Filed',
-        desc: `${e.trainerName} submitted ₹${e.amount} Travel claim`,
-        time: '1h ago',
-        tab: 'approvals'
-      });
-    });
-
-    // Add draft payroll notifications
-    payrollRuns.filter(p => p.status === 'Draft').forEach(p => {
-      list.push({
-        id: `notif_pay_${p.id}`,
-        title: 'Payroll snapshot compiled',
-        desc: `August 2026 Draft cycle run compiled`,
-        time: '3h ago',
-        tab: 'approvals'
+        desc: `${e.trainerName} submitted ₹${e.amount} ${e.category} claim`,
+        time: 'Pending',
+        tab: currentUser?.role === 'trainer' ? 't_expenses' : 'expenses'
       });
     });
 
@@ -180,8 +196,12 @@ const SimulationShell: React.FC = () => {
     switch (adminActiveTab) {
       case 'dashboard':
         return <Dashboard setActiveTab={setAdminActiveTab} />;
+      case 'hr_dashboard':
+        return <HRDashboard onNavigateToTrainers={() => setAdminActiveTab('trainers')} />;
       case 'trainers':
         return <Trainers />;
+      case 'training_sites':
+        return <TrainingSitesManager />;
       case 'operations':
         return <Operations />;
       case 'attendance':
@@ -203,26 +223,27 @@ const SimulationShell: React.FC = () => {
     }
   };
 
-  // Convert tab ID to breadcrumb label
   const getBreadcrumb = () => {
     const mapping: { [key: string]: string } = {
       't_dashboard': 'Trainer Dashboard',
-      't_schedule': 'My Calendar',
+      't_schedule': 'My Schedule',
       't_attendance': 'Mark Attendance',
-      't_report': 'Class Logs & Reports',
+      't_report': 'Class Reports',
       't_expenses': 'My Expenses',
-      't_salary': 'Earnings ledger',
+      't_salary': 'Earnings & Payslips',
       't_profile': 'My Profile',
-      'dashboard': 'Executive KPIs',
+      'dashboard': 'Executive Dashboard',
+      'hr_dashboard': 'HR Operations',
       'trainers': 'Trainer Profiles',
-      'operations': 'Training Schedules',
-      'attendance': 'Attendance Records',
+      'training_sites': 'Training Sites',
+      'operations': 'Training Ops',
+      'attendance': 'Attendance Feed',
       'finance': 'Commercial Ledger',
-      'payroll': 'Trainer Payroll Runs',
-      'expenses': 'Reimbursements Claims',
-      'approvals': 'Approvals Hub',
+      'payroll': 'Trainer Payroll',
+      'expenses': 'Reimbursements',
+      'approvals': 'Approval Center',
       'settings': 'System Settings',
-      'audit': 'Audit Ledger'
+      'audit': 'Security Audit'
     };
     return mapping[adminActiveTab] || 'Dashboard';
   };
@@ -244,7 +265,7 @@ const SimulationShell: React.FC = () => {
             <select
               value={currentUser?.id || ''}
               onChange={handleRoleChange}
-              className="bg-transparent text-xs font-bold text-rose-600 border-none outline-none cursor-pointer focus:ring-0 max-w-[160px] truncate"
+              className="bg-transparent text-xs font-bold text-[#E50914] border-none outline-none cursor-pointer focus:ring-0 max-w-[170px] truncate"
             >
               {users.map(u => (
                 <option key={u.id} value={u.id} className="bg-white dark:bg-zinc-950 text-slate-800 dark:text-slate-200">
@@ -253,16 +274,6 @@ const SimulationShell: React.FC = () => {
               ))}
             </select>
           </div>
-
-          {/* Reset database */}
-          <button
-            onClick={resetDatabase}
-            className="flex items-center gap-1.5 bg-slate-50 dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-850 hover:bg-slate-100 dark:hover:bg-zinc-800/80 hover:border-slate-350 dark:hover:border-zinc-700 text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-slate-200 transition rounded-xl px-3 py-1.5 text-xs font-bold shrink-0 shadow-sm"
-            title="Reset demo seeding data"
-          >
-            <RefreshCw size={12} className="text-amber-500" />
-            <span>Reset Demo DB</span>
-          </button>
         </div>
       </header>
 
@@ -292,15 +303,14 @@ const SimulationShell: React.FC = () => {
                     onChange={(e) => { setSearchQuery(e.target.value); setShowSearch(true); }}
                     onFocus={() => setShowSearch(true)}
                     placeholder="Search Spark..."
-                    className="w-56 bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl py-1.5 pl-8 pr-3 text-xs outline-none focus:border-rose-600 dark:focus:border-rose-600 text-slate-800 dark:text-white font-semibold transition-all"
+                    className="w-56 bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl py-1.5 pl-8 pr-3 text-xs outline-none focus:border-[#E50914] text-slate-800 dark:text-white font-semibold transition-all"
                   />
-                  <Search size={14} className="text-slate-400 dark:text-zinc-555 absolute top-2.5 left-2.5" />
+                  <Search size={14} className="text-slate-400 absolute top-2.5 left-2.5" />
                 </div>
 
                 {/* Search overlay dropdown results */}
                 {showSearch && searchResults && (
                   <div className="absolute right-0 top-10 w-72 bg-white dark:bg-zinc-900 border border-slate-150 dark:border-zinc-800 rounded-xl shadow-2xl z-50 p-2 text-xs text-slate-800 dark:text-slate-350 max-h-80 overflow-y-auto custom-scrollbar">
-                    
                     {searchResults.trainers.length > 0 && (
                       <div className="space-y-1 pb-2 border-b border-slate-100 dark:border-zinc-800">
                         <p className="text-[8px] font-black uppercase text-slate-400 dark:text-zinc-500 tracking-wider px-2 py-1">Trainers</p>
@@ -310,7 +320,7 @@ const SimulationShell: React.FC = () => {
                             onClick={() => handleSearchResultClick(currentUser?.role === 'trainer' ? 't_profile' : 'trainers')}
                             className="p-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-zinc-800 cursor-pointer font-bold transition"
                           >
-                            {t.name}
+                            {t.name} ({t.status})
                           </div>
                         ))}
                       </div>
@@ -322,7 +332,7 @@ const SimulationShell: React.FC = () => {
                         {searchResults.sites.map(s => (
                           <div 
                             key={s.id} 
-                            onClick={() => handleSearchResultClick(currentUser?.role === 'trainer' ? 't_dashboard' : 'operations')}
+                            onClick={() => handleSearchResultClick('training_sites')}
                             className="p-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-zinc-800 cursor-pointer font-bold transition"
                           >
                             {s.name}
@@ -337,36 +347,14 @@ const SimulationShell: React.FC = () => {
                         {searchResults.invoices.map(i => (
                           <div 
                             key={i.id} 
-                            onClick={() => handleSearchResultClick(currentUser?.role === 'trainer' ? 't_salary' : 'finance')}
+                            onClick={() => handleSearchResultClick('finance')}
                             className="p-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-zinc-800 cursor-pointer font-bold flex justify-between transition"
                           >
                             <span>{i.invoiceNumber}</span>
-                            <span className="text-rose-500 font-extrabold">₹{i.totalAmount.toLocaleString()}</span>
+                            <span className="text-[#E50914] font-extrabold">₹{i.totalAmount.toLocaleString()}</span>
                           </div>
                         ))}
                       </div>
-                    )}
-
-                    {searchResults.schedules.length > 0 && (
-                      <div className="space-y-1 pt-2">
-                        <p className="text-[8px] font-black uppercase text-slate-400 dark:text-zinc-500 tracking-wider px-2 py-1">Schedules</p>
-                        {searchResults.schedules.map(s => (
-                          <div 
-                            key={s.id} 
-                            onClick={() => handleSearchResultClick(currentUser?.role === 'trainer' ? 't_schedule' : 'operations')}
-                            className="p-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-zinc-800 cursor-pointer font-bold transition"
-                          >
-                            {s.courseName}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {searchResults.trainers.length === 0 && 
-                     searchResults.sites.length === 0 && 
-                     searchResults.invoices.length === 0 && 
-                     searchResults.schedules.length === 0 && (
-                      <p className="text-center py-4 text-slate-400 dark:text-slate-500 font-semibold">No records match your query.</p>
                     )}
                   </div>
                 )}
@@ -376,11 +364,11 @@ const SimulationShell: React.FC = () => {
               <div className="relative" ref={notifRef}>
                 <button
                   onClick={() => setShowNotifications(!showNotifications)}
-                  className="p-1.5 bg-slate-50 dark:bg-zinc-900 hover:bg-slate-100 dark:hover:bg-zinc-800 border border-slate-200 dark:border-zinc-850 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 rounded-xl relative transition"
+                  className="p-1.5 bg-slate-50 dark:bg-zinc-900 hover:bg-slate-100 dark:hover:bg-zinc-800 border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-slate-400 rounded-xl relative transition"
                 >
                   <Bell size={14} />
                   {notifications.length > 0 && (
-                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-600 rounded-full flex items-center justify-center text-[7px] text-white font-black">
+                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-[#E50914] rounded-full flex items-center justify-center text-[7px] text-white font-black animate-pulse">
                       {notifications.length}
                     </span>
                   )}
@@ -388,30 +376,26 @@ const SimulationShell: React.FC = () => {
 
                 {/* Notifications dropdown list */}
                 {showNotifications && (
-                  <div className="absolute right-0 top-10 w-80 bg-white dark:bg-zinc-900 border border-slate-150 dark:border-zinc-800 rounded-xl shadow-2xl z-50 p-3 text-xs space-y-3">
+                  <div className="absolute right-0 top-10 w-80 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl z-50 p-3 text-xs space-y-3">
                     <div className="flex justify-between items-center border-b border-slate-100 dark:border-zinc-800 pb-2">
-                      <span className="font-extrabold text-slate-800 dark:text-white uppercase tracking-wider text-[10px]">Recent Alerts</span>
-                      <span className="text-[9px] text-rose-500 font-black">{notifications.length} Unread</span>
+                      <span className="font-extrabold text-slate-900 dark:text-white uppercase tracking-wider text-[10px]">Real-Time Feed</span>
+                      <span className="text-[9px] text-[#E50914] font-black">{notifications.length} Alerts</span>
                     </div>
 
-                    <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar pr-1">
+                    <div className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar pr-1">
                       {notifications.map((n, idx) => (
                         <div 
                           key={idx}
                           onClick={() => { setAdminActiveTab(n.tab); setShowNotifications(false); }}
-                          className="p-2 bg-slate-50 dark:bg-zinc-950/40 border border-slate-150 dark:border-zinc-850/50 rounded-lg cursor-pointer hover:border-rose-500/40 transition text-left"
+                          className="p-2.5 bg-slate-50 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 rounded-xl cursor-pointer hover:border-[#E50914]/40 transition text-left space-y-0.5"
                         >
                           <div className="flex justify-between items-center">
-                            <h4 className="font-bold text-slate-800 dark:text-slate-200 text-[10px]">{n.title}</h4>
-                            <span className="text-[8px] text-slate-400 dark:text-slate-500">{n.time}</span>
+                            <h4 className="font-bold text-slate-900 dark:text-slate-200 text-[11px]">{n.title}</h4>
+                            <span className="text-[8px] text-slate-400">{n.time}</span>
                           </div>
-                          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">{n.desc}</p>
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">{n.desc}</p>
                         </div>
                       ))}
-
-                      {notifications.length === 0 && (
-                        <p className="text-center py-6 text-slate-400 dark:text-slate-500 font-semibold">No new notifications in feed.</p>
-                      )}
                     </div>
                   </div>
                 )}
@@ -420,7 +404,7 @@ const SimulationShell: React.FC = () => {
               {/* 3. Dark/Light Theme Switcher Toggle */}
               <button
                 onClick={toggleTheme}
-                className="p-1.5 bg-slate-50 dark:bg-zinc-900 hover:bg-slate-100 dark:hover:bg-zinc-800 border border-slate-200 dark:border-zinc-850 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 rounded-xl transition"
+                className="p-1.5 bg-slate-50 dark:bg-zinc-900 hover:bg-slate-100 dark:hover:bg-zinc-800 border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-slate-400 rounded-xl transition"
                 title="Switch Color Theme"
               >
                 {theme === 'dark' ? <Sun size={14} className="text-amber-500" /> : <Moon size={14} className="text-indigo-600" />}
@@ -438,10 +422,67 @@ const SimulationShell: React.FC = () => {
       </div>
 
       {/* Footer copyright */}
-      <footer className="h-8 border-t px-6 flex items-center justify-between text-[10px] font-semibold text-slate-450 dark:text-slate-500 bg-white border-slate-150 dark:bg-zinc-950 dark:border-zinc-900 z-50 shrink-0">
-        <span>© 2026 DevLustro technologies pvt ltd. All rights reserved.</span>
-        <span>Spark · Trainer Management</span>
+      <footer className="h-8 border-t px-6 flex items-center justify-between text-[10px] font-semibold text-slate-500 bg-white border-slate-150 dark:bg-zinc-950 dark:border-zinc-900 z-50 shrink-0">
+        <span>© 2026 DevLustro Technologies Pvt Ltd. All rights reserved.</span>
+        <span>Spark Enterprise · Real-Time Operations</span>
       </footer>
+
+      {/* LIVE REAL-TIME TOAST NOTIFICATION (Requirement 2) */}
+      {toastEvent && (
+        <div className="fixed bottom-10 right-8 z-[100] bg-zinc-950 text-white border border-red-500/40 rounded-2xl p-4 shadow-2xl max-w-sm flex items-start gap-3 animate-slideIn">
+          <div className="p-2 bg-[#E50914] rounded-xl text-white shrink-0 mt-0.5">
+            <Radio size={16} className="animate-pulse" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h4 className="text-xs font-black text-white">{toastEvent.title}</h4>
+            <p className="text-[11px] text-zinc-300 mt-0.5 leading-snug">{toastEvent.message}</p>
+            <span className="text-[9px] text-zinc-500 font-mono mt-1 block">{toastEvent.timestamp}</span>
+          </div>
+          <button onClick={() => setToastEvent(null)} className="text-zinc-500 hover:text-white">
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
+      {/* 15-MINUTE INACTIVITY WARNING MODAL (Requirement 1) */}
+      {showInactivityWarning && (
+        <div className="fixed inset-0 bg-black/80 z-[999] flex items-center justify-center p-4 backdrop-blur-md animate-fadeIn">
+          <div className="bg-white dark:bg-zinc-950 border border-red-500/40 rounded-3xl p-8 max-w-md w-full space-y-5 text-center shadow-2xl">
+            <div className="w-16 h-16 rounded-full bg-amber-500/15 text-amber-500 flex items-center justify-center mx-auto border border-amber-500/30">
+              <Clock size={32} className="animate-spin" />
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-lg font-black text-slate-900 dark:text-white">
+                “Your session will expire soon due to inactivity.”
+              </h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                For enterprise security, you will be automatically logged out in:
+              </p>
+              <div className="text-3xl font-black text-[#E50914] font-mono py-1">
+                {Math.floor(inactivitySecondsRemaining / 60)}:
+                {String(inactivitySecondsRemaining % 60).padStart(2, '0')}
+              </div>
+            </div>
+
+            {/* Buttons: Continue Session & Logout */}
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <button
+                onClick={extendSession}
+                className="bg-[#E50914] hover:bg-[#b00610] text-white py-3 rounded-xl font-bold text-xs transition shadow-lg shadow-red-600/30"
+              >
+                Continue Session
+              </button>
+              <button
+                onClick={() => logout('Your session has expired due to inactivity. Please log in again.')}
+                className="bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 text-slate-700 dark:text-slate-300 py-3 rounded-xl font-bold text-xs transition"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

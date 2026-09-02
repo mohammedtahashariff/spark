@@ -77,7 +77,7 @@ const Audit: React.FC = () => {
                     </td>
                     <td className="p-4 space-y-1 text-slate-500 dark:text-slate-450 leading-relaxed max-w-sm font-medium">
                       <p className="font-bold text-slate-800 dark:text-slate-350">"{log.details}"</p>
-                      <p className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">IP: {log.ipAddress} • {log.deviceInfo}</p>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">{log.deviceInfo}</p>
                     </td>
                   </tr>
                 ))}
