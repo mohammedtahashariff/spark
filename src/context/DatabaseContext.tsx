@@ -639,7 +639,20 @@ const hydrateTrainers = (list: Trainer[]): Trainer[] => {
   });
 };
 
+// Bump this version whenever DEFAULT seed data changes to force a cache reset
+const DATA_VERSION = 2;
+
 export const DatabaseProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Auto-clear stale localStorage when data version is bumped
+  (() => {
+    const storedVersion = safeLocalStorageGet('spk_data_version');
+    if (storedVersion !== String(DATA_VERSION)) {
+      const keysToRemove = ['spk_trainers', 'spk_sites', 'spk_schedules', 'spk_attendance', 'spk_expenses', 'spk_invoices', 'spk_current_user'];
+      keysToRemove.forEach(k => { try { localStorage.removeItem(k); } catch {} });
+      safeLocalStorageSet('spk_data_version', String(DATA_VERSION));
+    }
+  })();
+
   const [currentUser, setCurrentUserState] = useState<User | null>(() => {
     const saved = safeLocalStorageGet('spk_current_user');
     if (saved) {
@@ -673,7 +686,13 @@ export const DatabaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const local = safeLocalStorageGet('spk_trainers');
     if (local) {
       try {
-        return hydrateTrainers(JSON.parse(local));
+        const parsed = hydrateTrainers(JSON.parse(local));
+        // Merge any new default trainers that aren't in the cached list
+        const cachedIds = new Set(parsed.map((t: Trainer) => t.id));
+        const missing = DEFAULT_TRAINERS.filter(dt => !cachedIds.has(dt.id));
+        const merged = [...parsed, ...missing];
+        safeLocalStorageSet('spk_trainers', merged);
+        return merged;
       } catch (e) {
         console.error('Failed to parse trainers:', e);
       }
@@ -687,7 +706,17 @@ export const DatabaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (local) {
       try {
         const parsed = JSON.parse(local);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Merge any new default sites that aren't in the cached list
+          const cachedIds = new Set(parsed.map((s: ClientSite) => s.id));
+          const missing = DEFAULT_SITES.filter(ds => !cachedIds.has(ds.id));
+          if (missing.length > 0) {
+            const merged = [...parsed, ...missing];
+            safeLocalStorageSet('spk_sites', merged);
+            return merged;
+          }
+          return parsed;
+        }
       } catch (e) {
         console.error('Failed to parse sites:', e);
       }
