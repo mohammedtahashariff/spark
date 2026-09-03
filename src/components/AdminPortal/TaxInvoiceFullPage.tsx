@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useDatabase } from '../../context/DatabaseContext';
 import { 
   Lock, CheckCircle, Printer, Download, Send, 
-  ArrowLeft, Plus, Trash2, ShieldCheck, Eye
+  ArrowLeft, Plus, Trash2, ShieldCheck, Eye, EyeOff
 } from 'lucide-react';
 import BrandLogo from '../BrandLogo';
 import type { Invoice, InvoiceLineItem } from '../../types';
@@ -55,6 +55,9 @@ const TaxInvoiceFullPage: React.FC<TaxInvoiceFullPageProps> = ({ invoiceId, onBa
   const existingInvoice = invoices.find(i => i.id === invoiceId);
   const isEditing = !!existingInvoice;
   const isLocked = existingInvoice ? (existingInvoice.isLocked || existingInvoice.status === 'Issued' || existingInvoice.status === 'Paid' || existingInvoice.status === 'Part Paid') : false;
+
+  // Masked GST toggle state
+  const [revealGstin, setRevealGstin] = useState(false);
 
   // Invoice Form State
   const [customerName, setCustomerName] = useState(existingInvoice?.customerName || '');
@@ -267,12 +270,24 @@ const TaxInvoiceFullPage: React.FC<TaxInvoiceFullPageProps> = ({ invoiceId, onBa
             </p>
             {canSeeTaxReg ? (
               <div className="pt-2 border-t border-slate-200 dark:border-zinc-800 space-y-0.5 font-mono text-[11px] text-slate-700 dark:text-slate-300">
-                <p><strong>GSTIN:</strong> 29AAACD9932B1Z3</p>
+                <div className="flex items-center gap-2">
+                  <p><strong>GSTIN:</strong> {revealGstin ? '29AAACD9932B1Z3' : '29AAAC•••••1Z3'}</p>
+                  <button
+                    type="button"
+                    onClick={() => setRevealGstin(prev => !prev)}
+                    className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-0.5 transition"
+                    title={revealGstin ? 'Mask GSTIN' : 'Reveal GSTIN'}
+                  >
+                    {revealGstin ? <EyeOff size={12} /> : <Eye size={12} />}
+                  </button>
+                </div>
                 <p><strong>PAN:</strong> AAACD9932B</p>
                 <p><strong>CIN:</strong> U72900KA2024PTC189021</p>
               </div>
             ) : (
-              <p className="text-[10px] text-slate-400 italic pt-1">Tax identifier protected by enterprise RBAC.</p>
+              <p className="text-[10px] text-slate-400 italic pt-1 flex items-center gap-1">
+                <Lock size={10} className="text-amber-500" /> Tax identifier masked & secured.
+              </p>
             )}
           </div>
 

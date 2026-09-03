@@ -87,7 +87,7 @@ const MobileSalary: React.FC = () => {
 
       {/* Payslip detail overlay */}
       {selectedSlip && (
-        <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 w-full max-w-sm space-y-4 shadow-2xl">
             <div className="flex justify-between items-center border-b border-slate-850 pb-2">
               <h3 className="text-xs font-bold uppercase tracking-wider text-rose-455">Settlement Statement</h3>

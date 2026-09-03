@@ -5,6 +5,7 @@ import type {
   PayrollRun, Payslip, Quotation, Invoice, PaymentAllocation, ClassReport,
   LoginHistoryItem, RealTimeEvent, RealTimeEventType, ReimbursementPaymentStatus
 } from '../types';
+import { savePermanentResume, getPermanentResume, deletePermanentResume } from '../utils/fileStorage';
 
 interface DatabaseContextType {
   currentUser: User | null;
@@ -45,11 +46,12 @@ interface DatabaseContextType {
   updateTrainerDOJ: (trainerId: string, date: string) => void;
   uploadTrainerResume: (trainerId: string, resumeFile: { name: string; url: string; size: string }) => void;
   deleteTrainerResume: (trainerId: string) => void;
+  updateTrainerDocumentStatus: (trainerId: string, documentNumber: string, status: 'Draft' | 'Review' | 'Approved' | 'Rejected' | 'Issued' | 'Archived', remarks?: string) => void;
   
   // Site Management
   addSite: (site: Omit<ClientSite, 'id'>) => void;
   updateSite: (site: ClientSite) => void;
-  deleteSite: (siteId: string) => void;
+  deleteSite: (id: string) => void;
   
   // Schedule Management
   addSchedule: (schedule: Omit<Schedule, 'id'>) => void;
@@ -59,12 +61,12 @@ interface DatabaseContextType {
   
   // Attendance Management
   checkInTrainer: (scheduleId: string, latitude: number, longitude: number, accuracy: number, selfieUrl: string, locationAddress?: string) => { success: boolean; record: AttendanceRecord };
-  reviewAttendance: (recordId: string, status: 'Verified' | 'Rejected' | 'Corrected', remarks: string) => void;
+  reviewAttendance: (recordId: string, status: 'Verified' | 'Rejected' | 'Corrected', remarks?: string) => void;
   
   // Reports & Expenses
   submitClassReport: (scheduleId: string, report: ClassReport) => void;
   submitExpenseClaim: (claim: Omit<ExpenseClaim, 'id' | 'trainerId' | 'trainerName' | 'status' | 'paymentStatus' | 'createdAt'>) => void;
-  reviewExpenseClaim: (claimId: string, status: 'Approved' | 'Rejected') => void;
+  reviewExpenseClaim: (claimId: string, status: 'Approved' | 'Rejected', remarks?: string) => void;
   markExpensePaid: (claimId: string, paymentDetails: { paidAmount: number; paymentDate: string; paymentReference: string; paymentMethod: string }) => void;
   
   // Payroll Management
@@ -267,6 +269,17 @@ const DEFAULT_SITES: ClientSite[] = [
     contactPerson: 'Dr. Muralidhara S.',
     contactNumber: '+91 94480 98765',
     status: 'Active'
+  },
+  {
+    id: 's5',
+    name: 'Sapthagiri College of Engineering',
+    latitude: 13.0452,
+    longitude: 77.5191,
+    geofenceRadius: 200,
+    address: '14/5, Hesaraghatta Main Road, Chikkasandra, Jalahalli West, Bengaluru, Karnataka - 560057',
+    contactPerson: 'Admin Office',
+    contactNumber: '+91 80 2349 7777',
+    status: 'Active'
   }
 ];
 
@@ -395,6 +408,23 @@ const DEFAULT_EXPENSES = (): ExpenseClaim[] => [
     status: 'Pending',
     paymentStatus: 'Pending',
     createdAt: new Date().toISOString()
+  },
+  {
+    id: 'exp3',
+    trainerId: 't1',
+    trainerName: 'Mohammed Taha',
+    date: getFormattedDate(-2),
+    category: 'Travel',
+    amount: 1450,
+    purpose: 'Airport taxi commute for special workshop session',
+    siteId: 's1',
+    siteName: 'Bangalore Training Center (Main Site)',
+    status: 'Rejected',
+    paymentStatus: 'Rejected',
+    reviewedBy: 'Venkat Ramakrishnan (Finance)',
+    reviewedAt: new Date(Date.now() - 86400000).toISOString(),
+    rejectionRemarks: 'Outstation and airport transit fares require prior authorization voucher as per company travel policy.',
+    createdAt: new Date(Date.now() - 172800000).toISOString()
   }
 ];
 
@@ -438,12 +468,30 @@ const DEFAULT_PAYSLIPS = (): Payslip[] => [
     hourlyHours: 0,
     hourlyRate: 0,
     hourlyPay: 0,
-    fixedSalary: 95000,
+    fixedSalary: 75000,
     incentives: 0,
-    deductions: 2500,
+    deductions: 0,
     approvedExpenses: 0,
-    grossSalary: 95000,
-    netSalary: 92500,
+    grossSalary: 75000,
+    netSalary: 75000,
+    status: 'Paid',
+    paymentDate: getFormattedDate(-15)
+  },
+  {
+    id: 'ps_3',
+    payrollRunId: 'pr_1',
+    trainerId: 't3',
+    trainerName: 'Rajesh Kumar',
+    month: '2026-07',
+    hourlyHours: 36,
+    hourlyRate: 1500,
+    hourlyPay: 54000,
+    fixedSalary: 0,
+    incentives: 1000,
+    deductions: 0,
+    approvedExpenses: 0,
+    grossSalary: 55000,
+    netSalary: 55000,
     status: 'Paid',
     paymentDate: getFormattedDate(-15)
   }
@@ -451,82 +499,68 @@ const DEFAULT_PAYSLIPS = (): Payslip[] => [
 
 const DEFAULT_QUOTATIONS = (): Quotation[] => [
   {
-    id: 'q_1',
-    quotationNumber: 'SPK-QT-2026-0001',
+    id: 'qt_1',
+    quotationNumber: 'SPK/QT/2026-27/001',
     customerName: 'RV College of Engineering',
     siteId: 's3',
     siteName: 'RV College of Engineering (RVCE)',
-    date: getFormattedDate(-10),
-    servicePeriod: 'August 2026',
+    date: '2026-08-01',
+    servicePeriod: 'Aug 2026 - Dec 2026',
+    status: 'Draft',
     lineItems: [
       { description: 'Python/Django Foundation Training (30 hours)', quantity: 30, rate: 1500, taxCode: 'GST 18%', taxAmount: 8100, total: 53100 }
     ],
     subtotal: 45000,
-    discount: 0,
     taxTotal: 8100,
-    totalAmount: 53100,
-    status: 'Converted',
-    convertedInvoiceId: 'inv_1'
+    discount: 0,
+    totalAmount: 53100
   }
 ];
 
 const DEFAULT_INVOICES = (): Invoice[] => [
   {
     id: 'inv_1',
-    invoiceNumber: 'SPK-INV-2026-0001',
-    quotationId: 'q_1',
-    customerName: 'RV College of Engineering',
-    customerAddress: 'Mysore Road, Bangalore, Karnataka - 560059',
-    customerTaxId: '29AAACR1234F1Z1',
-    siteId: 's3',
-    siteName: 'RV College of Engineering (RVCE)',
-    date: getFormattedDate(-8),
-    dueDate: getFormattedDate(22),
-    servicePeriod: 'August 2026',
-    poNumber: 'PO/RVCE/2026/892',
-    contractRef: 'MOU-DLT-RVCE-2024',
+    invoiceNumber: 'SPK/INV/2026-27/001',
+    customerName: 'PES University',
+    siteId: 's2',
+    siteName: 'PES University (Main Campus)',
+    date: '2026-08-10',
+    dueDate: '2026-09-10',
+    servicePeriod: 'July 2026',
+    status: 'Paid',
     lineItems: [
       { description: 'Python & AI Specialization Track (30 hours)', quantity: 30, unit: 'Hours', rate: 1500, discount: 0, taxCode: 'GST 18%', taxAmount: 8100, total: 53100 }
     ],
     subtotal: 45000,
-    discount: 0,
     taxTotal: 8100,
-    rounding: 0,
+    discount: 0,
     totalAmount: 53100,
     amountPaid: 53100,
     outstandingBalance: 0,
-    status: 'Paid',
-    isLocked: true,
-    issuedAt: getFormattedDate(-8),
-    approvedBy: 'Venkat Ramakrishnan'
+    payments: [
+      { id: 'pay_1', invoiceId: 'inv_1', date: '2026-08-20', amount: 53100, paymentMode: 'Bank Transfer', reference: 'UTR-HDFC-998822' }
+    ]
   },
   {
     id: 'inv_2',
-    invoiceNumber: 'SPK-INV-2026-0002',
-    customerName: 'PES University (Main Campus)',
-    customerAddress: '100 Feet Ring Road, BSK III Stage, Bangalore - 560085',
-    customerTaxId: '29AAACP5678K1Z5',
-    siteId: 's2',
-    siteName: 'PES University (Main Campus)',
-    date: getFormattedDate(-1),
-    dueDate: getFormattedDate(29),
-    servicePeriod: 'August 2026',
-    poNumber: 'PES/ENG/2026-09/441',
-    contractRef: 'MOU-SPK-PES-2025',
+    invoiceNumber: 'SPK/INV/2026-27/002',
+    customerName: 'BMS College of Engineering',
+    siteId: 's4',
+    siteName: 'BMS College of Engineering (BMSCE)',
+    date: '2026-08-15',
+    dueDate: '2026-09-15',
+    servicePeriod: 'July - August 2026',
+    status: 'Sent',
     lineItems: [
       { description: 'Java Full Stack & Microservices Bootcamp (80 hours)', quantity: 80, unit: 'Hours', rate: 1500, discount: 0, taxCode: 'GST 18%', taxAmount: 21600, total: 141600 }
     ],
     subtotal: 120000,
-    discount: 0,
     taxTotal: 21600,
-    rounding: 0,
+    discount: 0,
     totalAmount: 141600,
     amountPaid: 0,
     outstandingBalance: 141600,
-    status: 'Issued',
-    isLocked: true,
-    issuedAt: getFormattedDate(-1),
-    approvedBy: 'Venkat Ramakrishnan'
+    payments: []
   }
 ];
 
@@ -553,8 +587,7 @@ const WARNING_THRESHOLD_MS = 13.5 * 60 * 1000; // Warning shown with 1.5 min rem
 export function safeLocalStorageGet(key: string): string | null {
   try {
     return localStorage.getItem(key);
-  } catch (err) {
-    console.warn(`[Storage] Failed to read ${key}:`, err);
+  } catch {
     return null;
   }
 }
@@ -564,46 +597,43 @@ export function safeLocalStorageSet(key: string, value: any): void {
     let toSave = value;
     if (key === 'spk_attendance' && Array.isArray(value)) {
       toSave = value.map(rec => {
-        // If selfie base64 is larger than 25KB, optimize it to prevent localStorage QuotaExceededError
-        if (rec.selfieUrl && rec.selfieUrl.startsWith('data:image') && rec.selfieUrl.length > 25000) {
+        if (rec.selfieUrl && rec.selfieUrl.startsWith('data:') && rec.selfieUrl.length > 5000) {
           return {
             ...rec,
-            selfieUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80'
+            selfieUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=60'
           };
         }
         return rec;
       });
+    } else if (key === 'spk_trainers' && Array.isArray(value)) {
+      toSave = value.map(tr => {
+        if (tr.resumeUrl && tr.resumeUrl.startsWith('data:') && tr.resumeUrl.length > 20000) {
+          return {
+            ...tr,
+            resumeUrl: `indexeddb://resume_${tr.id}`
+          };
+        }
+        return tr;
+      });
     }
     const serialized = typeof toSave === 'string' ? toSave : JSON.stringify(toSave);
     localStorage.setItem(key, serialized);
-  } catch (err: any) {
-    console.warn(`[Storage] Failed to save ${key}, attempting quota recovery:`, err);
-    try {
-      if (err?.name === 'QuotaExceededError' || err?.code === 22) {
-        localStorage.removeItem('spk_audit');
-        const serialized = typeof value === 'string' ? value : JSON.stringify(value);
-        localStorage.setItem(key, serialized);
-      }
-    } catch (innerErr) {
-      console.error(`[Storage] Quota exceeded and recovery failed for ${key}:`, innerErr);
-    }
+  } catch (e) {
+    console.warn(`[Storage] Exceeded quota writing ${key}.`);
   }
 }
 
 const hydrateTrainers = (list: Trainer[]): Trainer[] => {
-  if (!Array.isArray(list) || list.length === 0) return DEFAULT_TRAINERS;
   return list.map(t => {
-    const seed = DEFAULT_TRAINERS.find(d => d.id === t.id || d.email === t.email);
-    if (!seed) return t;
+    const seed = DEFAULT_TRAINERS.find(s => s.id === t.id) || DEFAULT_TRAINERS[0];
     return {
-      ...seed,
       ...t,
       individualId: t.individualId || seed.individualId || `TRN-${t.id}`,
       dateOfJoining: t.dateOfJoining || seed.dateOfJoining || '2024-06-15',
-      resumeName: t.resumeName || seed.resumeName || 'Resume.pdf',
-      resumeUrl: t.resumeUrl || seed.resumeUrl || '/resumes/resume.pdf',
-      resumeUploadedAt: t.resumeUploadedAt || seed.resumeUploadedAt || '2026-08-01',
-      resumeSize: t.resumeSize || seed.resumeSize || '1.2 MB',
+      resumeName: t.resumeName ?? seed.resumeName ?? 'Resume.pdf',
+      resumeUrl: t.resumeUrl ?? seed.resumeUrl ?? '/resumes/resume.pdf',
+      resumeUploadedAt: t.resumeUploadedAt ?? seed.resumeUploadedAt ?? '2026-08-01',
+      resumeSize: t.resumeSize ?? seed.resumeSize ?? '1.2 MB',
       documents: Array.isArray(t.documents) && t.documents.length > 0 ? t.documents : seed.documents
     };
   });
@@ -611,13 +641,12 @@ const hydrateTrainers = (list: Trainer[]): Trainer[] => {
 
 export const DatabaseProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUserState] = useState<User | null>(() => {
-    const local = safeLocalStorageGet('spk_current_user');
-    if (local) {
+    const saved = safeLocalStorageGet('spk_current_user');
+    if (saved) {
       try {
-        const user = JSON.parse(local);
-        if (user && user.id) return user;
-      } catch {
-        return DEFAULT_USERS[0];
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to parse current user:', e);
       }
     }
     return DEFAULT_USERS[0];
@@ -627,7 +656,6 @@ export const DatabaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return (safeLocalStorageGet('spk_theme') as 'dark' | 'light') || 'dark';
   });
 
-  // Inactivity & Session state
   const [sessionExpiredMessage, setSessionExpiredMessage] = useState<string | null>(null);
   const [showInactivityWarning, setShowInactivityWarning] = useState(false);
   const [inactivitySecondsRemaining, setInactivitySecondsRemaining] = useState(90);
@@ -635,12 +663,10 @@ export const DatabaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const inactivityTimerRef = useRef<number | null>(null);
   const warningCountdownIntervalRef = useRef<number | null>(null);
 
-  // Real-time Event state & broadcast channel
   const [realtimeEvents, setRealtimeEvents] = useState<RealTimeEvent[]>([]);
   const [latestEvent, setLatestEvent] = useState<RealTimeEvent | null>(null);
   const broadcastChannelRef = useRef<BroadcastChannel | null>(null);
 
-  // Core collections initialized synchronously from localStorage
   const [users] = useState<User[]>(DEFAULT_USERS);
 
   const [trainers, setTrainers] = useState<Trainer[]>(() => {
@@ -671,16 +697,28 @@ export const DatabaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   });
 
   const [schedules, setSchedules] = useState<Schedule[]>(() => {
+    const today = getFormattedDate(0);
     const local = safeLocalStorageGet('spk_schedules');
     if (local) {
       try {
         const parsed = JSON.parse(local);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Ensure there is always a session scheduled for today
+          const hasToday = parsed.some((s: Schedule) => s.date === today && s.status === 'Scheduled');
+          if (!hasToday) {
+            parsed[0] = { ...parsed[0], date: today, status: 'Scheduled' };
+          }
+          return parsed;
+        }
       } catch (e) {
         console.error('Failed to parse schedules:', e);
       }
     }
     const init = DEFAULT_S_CLASSES();
+    const hasToday = init.some(s => s.date === today && s.status === 'Scheduled');
+    if (!hasToday && init.length > 0) {
+      init[0] = { ...init[0], date: today, status: 'Scheduled' };
+    }
     safeLocalStorageSet('spk_schedules', init);
     return init;
   });
@@ -897,6 +935,37 @@ export const DatabaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       safeLocalStorageSet('spk_current_user', currentUser);
     }
   }, [currentUser]);
+
+  // Permanently Rehydrate Trainer Resumes from IndexedDB across page reloads
+  useEffect(() => {
+    const restoreResumes = async () => {
+      try {
+        const updatedTrainers = await Promise.all(
+          trainers.map(async (t) => {
+            const stored = await getPermanentResume(t.id);
+            if (stored && stored.url) {
+              return {
+                ...t,
+                resumeName: stored.name,
+                resumeUrl: stored.url,
+                resumeSize: stored.size,
+                resumeUploadedAt: stored.uploadedAt
+              };
+            }
+            return t;
+          })
+        );
+        // Only update if any trainer got a restored resume
+        const hasChanges = updatedTrainers.some((ut, idx) => ut.resumeUrl !== trainers[idx]?.resumeUrl);
+        if (hasChanges) {
+          setTrainers(updatedTrainers);
+        }
+      } catch (err) {
+        console.warn('Error rehydrating resumes from IndexedDB:', err);
+      }
+    };
+    restoreResumes();
+  }, []);
 
   // Real-time broadcast channel initialization
   useEffect(() => {
@@ -1188,6 +1257,12 @@ export const DatabaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const uploadTrainerResume = (trainerId: string, resumeFile: { name: string; url: string; size: string }) => {
     const today = new Date().toISOString().split('T')[0];
+    savePermanentResume(trainerId, {
+      name: resumeFile.name,
+      url: resumeFile.url,
+      size: resumeFile.size,
+      uploadedAt: today
+    });
     setTrainers(prev => {
       const updated = prev.map(t => t.id === trainerId ? {
         ...t,
@@ -1196,13 +1271,14 @@ export const DatabaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         resumeSize: resumeFile.size,
         resumeUploadedAt: today
       } : t);
-      safeLocalStorageSet('spk_trainers', JSON.stringify(updated));
+      safeLocalStorageSet('spk_trainers', updated);
       return updated;
     });
     addAuditLog('Resume Uploaded', `Uploaded resume "${resumeFile.name}" for trainer ID ${trainerId}`);
   };
 
   const deleteTrainerResume = (trainerId: string) => {
+    deletePermanentResume(trainerId);
     setTrainers(prev => {
       const updated = prev.map(t => t.id === trainerId ? {
         ...t,
@@ -1211,10 +1287,40 @@ export const DatabaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         resumeSize: undefined,
         resumeUploadedAt: undefined
       } : t);
-      safeLocalStorageSet('spk_trainers', JSON.stringify(updated));
+      safeLocalStorageSet('spk_trainers', updated);
       return updated;
     });
     addAuditLog('Resume Removed', `Removed resume for trainer ID ${trainerId}`);
+  };
+
+  const updateTrainerDocumentStatus = (
+    trainerId: string,
+    documentNumber: string,
+    status: 'Draft' | 'Review' | 'Approved' | 'Rejected' | 'Issued' | 'Archived',
+    remarks?: string
+  ) => {
+    setTrainers(prev => {
+      const updated = prev.map(t => {
+        if (t.id === trainerId && Array.isArray(t.documents)) {
+          const updatedDocs = t.documents.map(d => {
+            if (d.documentNumber === documentNumber) {
+              return {
+                ...d,
+                status,
+                rejectionRemarks: remarks || d.rejectionRemarks
+              };
+            }
+            return d;
+          });
+          return { ...t, documents: updatedDocs };
+        }
+        return t;
+      });
+      safeLocalStorageSet('spk_trainers', updated);
+      return updated;
+    });
+    addAuditLog('Document Status Updated', `Updated document ${documentNumber} for trainer ID ${trainerId} to ${status}`);
+    broadcastRealTimeEvent('TRAINER_STATUS', 'Document Status Updated', `Document ${documentNumber} marked as ${status}.`);
   };
 
   // Site Management Actions
@@ -1406,15 +1512,17 @@ export const DatabaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return { success: true, record: newRecord };
   };
 
-  const reviewAttendance = (recordId: string, status: 'Verified' | 'Rejected' | 'Corrected', remarks: string) => {
+  const reviewAttendance = (recordId: string, status: 'Verified' | 'Rejected' | 'Corrected', remarks?: string) => {
+    const reviewerName = currentUser?.name ? `${currentUser.name} (${currentUser.role.toUpperCase()})` : (currentUser?.email || 'hr@spark.com');
+    const finalRemarks = remarks?.trim() || (status === 'Corrected' ? 'Exception approved and verified by administrator override.' : 'Attendance check-in rejected upon verification review.');
     setAttendanceRecords(prev => {
       const updated = prev.map(r => {
         if (r.id === recordId) {
           return {
             ...r,
             verificationStatus: status,
-            adminRemarks: remarks,
-            reviewedBy: currentUser?.email || 'hr@spark.com',
+            adminRemarks: finalRemarks,
+            reviewedBy: reviewerName,
             reviewedAt: new Date().toISOString()
           };
         }
@@ -1423,7 +1531,7 @@ export const DatabaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       safeLocalStorageSet('spk_attendance', JSON.stringify(updated));
       return updated;
     });
-    addAuditLog('Attendance Review', `Reviewed check-in record ${recordId} as ${status}. Remarks: ${remarks}`);
+    addAuditLog('Attendance Review', `Reviewed check-in record ${recordId} as ${status}. Remarks: ${finalRemarks}`);
     broadcastRealTimeEvent('ATTENDANCE_REVIEW', 'Attendance Review Updated', `Check-in record has been marked as ${status}.`);
   };
 
@@ -1467,7 +1575,9 @@ export const DatabaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     broadcastRealTimeEvent('EXPENSE_SUBMIT', 'Expense Claim Submitted', `${trainer.name} submitted a ₹${claim.amount.toLocaleString()} ${claim.category} claim.`);
   };
 
-  const reviewExpenseClaim = (claimId: string, status: 'Approved' | 'Rejected') => {
+  const reviewExpenseClaim = (claimId: string, status: 'Approved' | 'Rejected', remarks?: string) => {
+    const reviewerName = currentUser ? `${currentUser.name} (${currentUser.role.toUpperCase()})` : 'System Admin';
+    const finalRemarks = remarks?.trim() || (status === 'Rejected' ? 'Claim rejected during administrative review.' : undefined);
     setExpenses(prev => {
       const updated = prev.map(e => {
         if (e.id === claimId) {
@@ -1476,8 +1586,9 @@ export const DatabaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             status,
             approvedAmount: status === 'Approved' ? (e.approvedAmount || e.amount) : 0,
             paymentStatus: (status === 'Approved' ? 'Approved' : 'Rejected') as ReimbursementPaymentStatus,
-            reviewedBy: currentUser?.email || 'admin@spark.com',
-            reviewedAt: new Date().toISOString()
+            reviewedBy: reviewerName,
+            reviewedAt: new Date().toISOString(),
+            rejectionRemarks: finalRemarks
           };
         }
         return e;
@@ -1485,7 +1596,7 @@ export const DatabaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       safeLocalStorageSet('spk_expenses', JSON.stringify(updated));
       return updated;
     });
-    addAuditLog('Expense Claim Review', `${status} expense claim ID ${claimId}`);
+    addAuditLog('Expense Claim Review', `${status} expense claim ID ${claimId}. ${finalRemarks ? `Reason: ${finalRemarks}` : ''}`);
     broadcastRealTimeEvent('EXPENSE_REVIEW', 'Expense Claim Reviewed', `Expense claim ${claimId} marked as ${status}.`);
   };
 
@@ -1856,6 +1967,7 @@ export const DatabaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         updateTrainerDOJ: updateTrainerDateOfJoining,
         uploadTrainerResume,
         deleteTrainerResume,
+        updateTrainerDocumentStatus,
         addSite,
         updateSite,
         deleteSite,

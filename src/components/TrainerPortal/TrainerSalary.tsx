@@ -105,7 +105,7 @@ const TrainerSalary: React.FC = () => {
 
       {/* Payslip Detail Breakdown Modal Overlay */}
       {selectedSlip && (
-        <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white dark:bg-zinc-900 border border-slate-150 dark:border-zinc-800 rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-2xl">
             <div className="flex justify-between items-center border-b border-slate-100 dark:border-zinc-800 pb-2">
               <h3 className="text-xs font-bold uppercase tracking-wider text-rose-600 dark:text-rose-500">Settlement Statement</h3>

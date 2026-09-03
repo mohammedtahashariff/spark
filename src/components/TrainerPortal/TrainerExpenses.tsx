@@ -145,7 +145,21 @@ const TrainerExpenses: React.FC = () => {
                   </td>
 
                   <td className="p-4 text-right">
-                    {exp.paymentStatus === 'Paid' ? (
+                    {exp.status === 'Rejected' ? (
+                      <div className="space-y-1 text-right">
+                        {exp.reviewedBy && (
+                          <p className="text-[10px] text-slate-600 dark:text-slate-400 font-medium">
+                            Rejected by: <span className="font-bold text-slate-800 dark:text-white">{exp.reviewedBy}</span>
+                          </p>
+                        )}
+                        {exp.rejectionRemarks && (
+                          <div className="text-[10px] text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 p-2 rounded-xl border border-rose-200 dark:border-rose-900/50 max-w-xs ml-auto text-left font-normal leading-snug">
+                            <span className="font-bold block text-[9px] uppercase tracking-wider text-rose-700 dark:text-rose-300">Rejection Details:</span>
+                            {exp.rejectionRemarks}
+                          </div>
+                        )}
+                      </div>
+                    ) : exp.paymentStatus === 'Paid' ? (
                       <div className="space-y-0.5 text-[10px] text-slate-600 dark:text-slate-400">
                         <p className="font-bold text-emerald-600 dark:text-emerald-400">Paid on {exp.paymentDate || exp.date}</p>
                         <p className="font-mono text-slate-400">{exp.paymentReference || 'PAY-REF-SETTLED'}</p>

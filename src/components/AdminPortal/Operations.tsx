@@ -99,7 +99,8 @@ const Operations: React.FC = () => {
     e.preventDefault();
     if (!reviewRequestId) return;
 
-    reviewScheduleChange(reviewRequestId, reviewStatus, reviewRemarks.trim());
+    const finalRemarks = reviewRemarks.trim() || (reviewStatus === 'Approved' ? 'Schedule adjustment approved by operations manager.' : 'Schedule adjustment rejected.');
+    reviewScheduleChange(reviewRequestId, reviewStatus, finalRemarks);
     setReviewRequestId(null);
   };
 
@@ -322,7 +323,7 @@ const Operations: React.FC = () => {
 
       {/* Add Site Modal */}
       {showAddSite && (
-        <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-2xl">
             <div className="flex justify-between items-center border-b border-slate-850 pb-2">
               <h3 className="text-sm font-bold text-white">Register Training Site</h3>
@@ -405,7 +406,7 @@ const Operations: React.FC = () => {
 
       {/* Add Class Modal */}
       {showAddClass && (
-        <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-2xl">
             <div className="flex justify-between items-center border-b border-slate-850 pb-2">
               <h3 className="text-sm font-bold text-white">Schedule Training Session</h3>
@@ -524,7 +525,7 @@ const Operations: React.FC = () => {
 
       {/* Review Request Modal */}
       {reviewRequestId && (
-        <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 w-full max-w-sm space-y-4 shadow-2xl">
             <div className="flex justify-between items-center border-b border-slate-850 pb-2">
               <h3 className="text-sm font-bold text-white">Review Request Remarks</h3>

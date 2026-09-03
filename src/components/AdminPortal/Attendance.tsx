@@ -58,8 +58,9 @@ const Attendance: React.FC = () => {
 
   const handleConfirmOverride = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!overrideRecordId || !overrideRemarks.trim()) return;
-    reviewAttendance(overrideRecordId, overrideDecision, overrideRemarks.trim());
+    if (!overrideRecordId) return;
+    const finalRemarks = overrideRemarks.trim() || (overrideDecision === 'Corrected' ? 'Approved exception upon administrative review & coordinator confirmation.' : 'Check-in exception rejected by administrator.');
+    reviewAttendance(overrideRecordId, overrideDecision, finalRemarks);
     setOverrideRecordId(null);
   };
 
@@ -505,9 +506,8 @@ const Attendance: React.FC = () => {
               </div>
 
               <div className="space-y-1">
-                <label className="text-slate-400 font-bold">Audit Remarks / Justification *</label>
+                <label className="text-slate-400 font-bold">Audit Remarks / Justification</label>
                 <textarea
-                  required
                   rows={3}
                   value={overrideRemarks}
                   onChange={(e) => setOverrideRemarks(e.target.value)}

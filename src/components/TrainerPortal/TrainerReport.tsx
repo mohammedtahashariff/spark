@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useDatabase } from '../../context/DatabaseContext';
-import { BookOpen, CheckCircle, Clock, Users, ShieldAlert } from 'lucide-react';
+import { BookOpen, CheckCircle, Clock, Users, ShieldAlert, Plus, X } from 'lucide-react';
 
 
 const TrainerReport: React.FC = () => {
@@ -14,12 +14,18 @@ const TrainerReport: React.FC = () => {
     s => s.trainerId === trainer.id && !s.report
   );
 
+  // Available classes for reporting (falls back to all assigned classes if none strictly pending)
+  const availableReportClasses = reportableClasses.length > 0
+    ? reportableClasses
+    : schedules.filter(s => s.trainerId === trainer.id || s.status === 'Scheduled');
+
   // Find completed classes that have a report filed
   const completedReports = schedules.filter(
     s => s.trainerId === trainer.id && s.report
   );
 
   const [selectedScheduleId, setSelectedScheduleId] = useState('');
+  const [showAddReportModal, setShowAddReportModal] = useState(false);
   
   // Form State
   const [topic, setTopic] = useState('');
@@ -31,10 +37,10 @@ const TrainerReport: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
-    if (reportableClasses.length > 0 && !selectedScheduleId) {
-      setSelectedScheduleId(reportableClasses[0].id);
+    if (availableReportClasses.length > 0 && (!selectedScheduleId || !availableReportClasses.some(c => c.id === selectedScheduleId))) {
+      setSelectedScheduleId(availableReportClasses[0].id);
     }
-  }, [reportableClasses, selectedScheduleId]);
+  }, [availableReportClasses, selectedScheduleId]);
 
   useEffect(() => {
     if (selectedScheduleId) {
@@ -80,9 +86,29 @@ const TrainerReport: React.FC = () => {
 
   return (
     <div className="space-y-6 text-slate-700 dark:text-slate-350 flex flex-col h-full transition-colors duration-200">
-      <div>
-        <h2 className="text-xl font-bold text-slate-800 dark:text-white tracking-wide">Class Delivery Reports</h2>
-        <p className="text-xs text-slate-500 dark:text-slate-455 mt-0.5 font-medium">Submit detailed lecture reports containing topic coverage, class duration, student count, and operational issues.</p>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
+        <div>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white tracking-wide">Class Delivery Reports</h2>
+            <span className="bg-[#E50914] text-white text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full shadow-sm">
+              Lecture Logs
+            </span>
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-450 mt-1 font-medium">
+            Submit detailed lecture reports containing topic coverage, class duration, student count, and operational issues.
+          </p>
+        </div>
+
+        <button
+          onClick={() => {
+            const defId = availableReportClasses[0]?.id || '';
+            setSelectedScheduleId(defId);
+            setShowAddReportModal(true);
+          }}
+          className="flex items-center gap-1.5 bg-[#E50914] hover:bg-[#b00610] text-white rounded-xl px-4 py-2.5 text-xs font-bold transition shadow-md shadow-red-600/20 shrink-0"
+        >
+          <Plus size={15} /> Add Report
+        </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-grow overflow-hidden">
@@ -95,11 +121,24 @@ const TrainerReport: React.FC = () => {
               <span>Submit Training Report</span>
             </h3>
 
-            {reportableClasses.length === 0 && !success ? (
-              <div className="flex flex-col items-center justify-center text-center py-20 text-slate-400 dark:text-slate-500 space-y-2">
+            {availableReportClasses.length === 0 && !success ? (
+              <div className="flex flex-col items-center justify-center text-center py-20 text-slate-400 dark:text-slate-500 space-y-3">
                 <CheckCircle size={28} className="text-emerald-500" />
-                <p className="text-xs font-bold text-slate-800 dark:text-slate-300">All Reports Filed</p>
-                <p className="text-[10px] text-slate-500 dark:text-slate-450 max-w-[200px] mt-0.5 font-medium">Every completed training session in your schedule already has its report filed.</p>
+                <div>
+                  <p className="text-xs font-bold text-slate-800 dark:text-slate-300">All Reports Filed</p>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-450 max-w-[200px] mt-0.5 font-medium">Every scheduled session currently has its delivery report logged.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const fallbackId = schedules[0]?.id || '';
+                    setSelectedScheduleId(fallbackId);
+                    setShowAddReportModal(true);
+                  }}
+                  className="px-4 py-2 bg-[#E50914] hover:bg-[#b00610] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-sm"
+                >
+                  <Plus size={14} /> Add Report
+                </button>
               </div>
             ) : success ? (
               <div className="bg-slate-50 dark:bg-zinc-950 border border-slate-150 dark:border-zinc-855 rounded-xl p-6 flex flex-col items-center justify-center text-center space-y-4 shadow py-12">
@@ -126,9 +165,9 @@ const TrainerReport: React.FC = () => {
                     onChange={(e) => setSelectedScheduleId(e.target.value)}
                     className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg p-2.5 outline-none focus:border-rose-600 text-slate-850 dark:text-white font-semibold text-xs"
                   >
-                    {reportableClasses.map(c => (
+                    {availableReportClasses.map(c => (
                       <option key={c.id} value={c.id}>
-                        {c.courseName} ({c.date})
+                        {c.courseName} — {c.siteName} ({c.date})
                       </option>
                     ))}
                   </select>
@@ -250,6 +289,115 @@ const TrainerReport: React.FC = () => {
         </div>
 
       </div>
+
+      {/* Add Report Modal */}
+      {showAddReportModal && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 max-w-lg w-full space-y-4 shadow-2xl">
+            <div className="flex justify-between items-center border-b border-slate-100 dark:border-zinc-800 pb-3">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <BookOpen size={16} className="text-[#E50914]" />
+                <span>Create Class Delivery Report</span>
+              </h3>
+              <button onClick={() => setShowAddReportModal(false)} className="text-slate-400 hover:text-slate-600 font-bold">&times;</button>
+            </div>
+
+            <form onSubmit={(e) => { handleSubmitReport(e); setShowAddReportModal(false); }} className="space-y-3.5 text-xs">
+              <div className="space-y-1">
+                <label className="text-slate-500 dark:text-slate-400 font-bold">Select Training Session *</label>
+                <select
+                  value={selectedScheduleId}
+                  onChange={(e) => setSelectedScheduleId(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-2.5 text-slate-900 dark:text-white font-semibold outline-none focus:border-[#E50914]"
+                >
+                  {availableReportClasses.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.courseName} — {c.siteName} ({c.date} • {c.startTime} to {c.endTime})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-slate-500 dark:text-slate-400 font-bold">Delivered Hours *</label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    required
+                    value={hours}
+                    onChange={(e) => setHours(e.target.value)}
+                    placeholder="e.g. 4"
+                    className="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-2.5 text-slate-900 dark:text-white outline-none focus:border-[#E50914]"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-slate-500 dark:text-slate-400 font-bold">Student Headcount *</label>
+                  <input
+                    type="number"
+                    required
+                    value={students}
+                    onChange={(e) => setStudents(e.target.value)}
+                    placeholder="e.g. 45"
+                    className="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-2.5 text-slate-900 dark:text-white outline-none focus:border-[#E50914]"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-slate-500 dark:text-slate-400 font-bold">Topic Covered & Curriculum *</label>
+                <input
+                  type="text"
+                  required
+                  value={topic}
+                  onChange={(e) => setTopic(e.target.value)}
+                  placeholder="e.g. React hooks, Redux toolkit, asynchronous APIs"
+                  className="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-2.5 text-slate-900 dark:text-white outline-none focus:border-[#E50914]"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-slate-500 dark:text-slate-400 font-bold">Issues Encountered (Optional)</label>
+                <input
+                  type="text"
+                  value={issues}
+                  onChange={(e) => setIssues(e.target.value)}
+                  placeholder="e.g. Projector cable latency, lab Wi-Fi intermittent"
+                  className="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-2.5 text-slate-900 dark:text-white outline-none focus:border-[#E50914]"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-slate-500 dark:text-slate-400 font-bold">Instructor Remarks / Notes</label>
+                <textarea
+                  rows={2}
+                  value={remarks}
+                  onChange={(e) => setRemarks(e.target.value)}
+                  placeholder="General notes on cohort engagement, assignments given..."
+                  className="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-2.5 text-slate-900 dark:text-white outline-none focus:border-[#E50914] resize-none"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-zinc-800">
+                <button
+                  type="button"
+                  onClick={() => setShowAddReportModal(false)}
+                  className="px-4 py-2 rounded-xl text-slate-500 font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-[#E50914] hover:bg-[#b00610] text-white rounded-xl font-bold transition shadow-md flex items-center gap-1.5"
+                >
+                  <Plus size={14} /> Submit Class Report
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

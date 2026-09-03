@@ -19,6 +19,10 @@ const Expenses: React.FC = () => {
   const [paymentRef, setPaymentRef] = useState<string>('PAY-2026-00041');
   const [paymentMethod, setPaymentMethod] = useState<string>('Bank Transfer');
 
+  // Claim Rejection Modal State
+  const [rejectClaimModal, setRejectClaimModal] = useState<ExpenseClaim | null>(null);
+  const [rejectRemarks, setRejectRemarks] = useState('');
+
   const canProcessPayment = currentUser?.role === 'finance' || currentUser?.role === 'super_admin' || currentUser?.role === 'management';
 
   const handleOpenPayModal = (claim: ExpenseClaim) => {
@@ -41,6 +45,14 @@ const Expenses: React.FC = () => {
     });
 
     setPayClaimModal(null);
+  };
+
+  const handleConfirmReject = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!rejectClaimModal) return;
+    const finalRemarks = rejectRemarks.trim() || 'Claim rejected during administrative verification.';
+    reviewExpenseClaim(rejectClaimModal.id, 'Rejected', finalRemarks);
+    setRejectClaimModal(null);
   };
 
   const getPaymentStatusBadge = (claim: ExpenseClaim) => {
@@ -201,7 +213,7 @@ const Expenses: React.FC = () => {
                           <Check size={14} />
                         </button>
                         <button
-                          onClick={() => reviewExpenseClaim(claim.id, 'Rejected')}
+                          onClick={() => { setRejectClaimModal(claim); setRejectRemarks(''); }}
                           className="p-1.5 rounded-lg bg-rose-50 dark:bg-rose-950 text-rose-600 dark:text-rose-400 hover:bg-rose-100 transition"
                           title="Reject Claim"
                         >
@@ -209,7 +221,22 @@ const Expenses: React.FC = () => {
                         </button>
                       </div>
                     ) : (
-                      <span className="text-[10px] text-rose-500 font-bold">Claim Rejected</span>
+                      <div className="space-y-1 text-right">
+                        <span className="px-2 py-0.5 rounded bg-rose-500/10 text-rose-600 dark:text-rose-400 text-[10px] font-bold border border-rose-500/20 inline-block">
+                          Claim Rejected
+                        </span>
+                        {claim.reviewedBy && (
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                            By: <span className="font-bold text-slate-800 dark:text-slate-200">{claim.reviewedBy}</span>
+                          </p>
+                        )}
+                        {claim.rejectionRemarks && (
+                          <div className="text-[10px] text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 p-2 rounded-xl border border-rose-200 dark:border-rose-900/50 max-w-xs ml-auto text-left font-normal mt-1 leading-snug">
+                            <span className="font-bold block text-[9px] uppercase tracking-wider text-rose-700 dark:text-rose-300">Reason / Details:</span>
+                            {claim.rejectionRemarks}
+                          </div>
+                        )}
+                      </div>
                     )}
                   </td>
 
@@ -326,6 +353,71 @@ const Expenses: React.FC = () => {
 
             </form>
 
+          </div>
+        </div>
+      )}
+
+      {/* REJECT CLAIM MODAL */}
+      {rejectClaimModal && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl">
+            <div className="flex justify-between items-center border-b border-slate-100 dark:border-zinc-800 pb-3">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                  <X size={16} className="text-rose-600" />
+                  <span>Reject Reimbursement Claim</span>
+                </h3>
+                <p className="text-[10px] text-slate-400 mt-0.5">Claim ID #{rejectClaimModal.id} filed by {rejectClaimModal.trainerName}</p>
+              </div>
+              <button onClick={() => setRejectClaimModal(null)} className="text-slate-400 hover:text-slate-600 font-bold">&times;</button>
+            </div>
+
+            <form onSubmit={handleConfirmReject} className="space-y-3.5 text-xs">
+              <div className="bg-slate-50 dark:bg-zinc-900 p-3 rounded-xl border border-slate-200 dark:border-zinc-800 space-y-1 font-semibold">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Claim Category:</span>
+                  <span className="font-bold text-slate-900 dark:text-white">{rejectClaimModal.category}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Claim Amount:</span>
+                  <span className="font-mono text-rose-600 font-bold">₹{rejectClaimModal.amount.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between border-t border-slate-200 dark:border-zinc-800 pt-1">
+                  <span className="text-slate-400">Purpose:</span>
+                  <span className="italic text-slate-700 dark:text-slate-300 max-w-[240px] truncate">"{rejectClaimModal.purpose}"</span>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-slate-500 dark:text-slate-400 font-bold">
+                  Rejection Reason / Audit Remarks *
+                </label>
+                <textarea
+                  required
+                  rows={3}
+                  value={rejectRemarks}
+                  onChange={(e) => setRejectRemarks(e.target.value)}
+                  placeholder="e.g. Unverified fare receipt, outstation transit policy breach, or missing taxi bill..."
+                  className="w-full bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-2.5 text-slate-900 dark:text-white outline-none focus:border-[#E50914] resize-none"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-zinc-800">
+                <button
+                  type="button"
+                  onClick={() => setRejectClaimModal(null)}
+                  className="px-4 py-2 rounded-xl text-slate-500 font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold transition shadow-md flex items-center gap-1.5"
+                >
+                  <X size={14} /> Confirm Rejection
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

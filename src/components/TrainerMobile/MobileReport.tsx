@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useDatabase } from '../../context/DatabaseContext';
-import { BookOpen, CheckCircle, Clock, Users, ShieldAlert, Check } from 'lucide-react';
+import { BookOpen, CheckCircle, Clock, Users, ShieldAlert, Check, Plus } from 'lucide-react';
 
 const MobileReport: React.FC = () => {
   const { currentUser, schedules, trainers, submitClassReport } = useDatabase();
@@ -13,7 +13,12 @@ const MobileReport: React.FC = () => {
     s => s.trainerId === trainer.id && !s.report
   );
 
+  const availableReportClasses = reportableClasses.length > 0
+    ? reportableClasses
+    : schedules.filter(s => s.trainerId === trainer.id || s.status === 'Scheduled');
+
   const [selectedScheduleId, setSelectedScheduleId] = useState('');
+  const [forceShowForm, setForceShowForm] = useState(false);
   
   // Form State
   const [topic, setTopic] = useState('');
@@ -25,10 +30,10 @@ const MobileReport: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
-    if (reportableClasses.length > 0 && !selectedScheduleId) {
-      setSelectedScheduleId(reportableClasses[0].id);
+    if (availableReportClasses.length > 0 && (!selectedScheduleId || !availableReportClasses.some(c => c.id === selectedScheduleId))) {
+      setSelectedScheduleId(availableReportClasses[0].id);
     }
-  }, [reportableClasses, selectedScheduleId]);
+  }, [availableReportClasses, selectedScheduleId]);
 
   useEffect(() => {
     if (selectedScheduleId) {
@@ -63,6 +68,7 @@ const MobileReport: React.FC = () => {
     setErrorMsg('');
     setTimeout(() => {
       setSuccess(false);
+      setForceShowForm(false);
       setSelectedScheduleId('');
       setTopic('');
       setHours('');
@@ -72,7 +78,7 @@ const MobileReport: React.FC = () => {
     }, 2000);
   };
 
-  if (reportableClasses.length === 0 && !success) {
+  if (reportableClasses.length === 0 && !success && !forceShowForm) {
     return (
       <div className="space-y-4 pb-8 text-white flex flex-col items-center justify-center text-center h-[500px]">
         <div className="w-16 h-16 bg-slate-900 border border-slate-800 rounded-full flex items-center justify-center text-slate-500">
@@ -81,9 +87,19 @@ const MobileReport: React.FC = () => {
         <div>
           <p className="font-bold text-white">No Reports Pending</p>
           <p className="text-xs text-slate-400 max-w-[225px] mt-1">
-            All your completed training sessions already have reports filed.
+            All your scheduled training sessions already have reports filed.
           </p>
         </div>
+        <button
+          onClick={() => {
+            const fallbackId = availableReportClasses[0]?.id || '';
+            setSelectedScheduleId(fallbackId);
+            setForceShowForm(true);
+          }}
+          className="mt-2 px-5 py-2.5 bg-[#E50914] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-red-600/30 active:scale-95 transition"
+        >
+          <Plus size={14} /> Add Report
+        </button>
       </div>
     );
   }
@@ -92,9 +108,16 @@ const MobileReport: React.FC = () => {
     <div className="space-y-4 pb-8 text-white relative">
       <div className="flex justify-between items-center">
         <h2 className="text-md font-bold tracking-wide">Submit Training Report</h2>
-        <span className="text-[10px] text-rose-500 font-bold flex items-center gap-1">
-          <Clock size={12} /> Class Log
-        </span>
+        <button
+          onClick={() => {
+            const fallbackId = availableReportClasses[0]?.id || '';
+            setSelectedScheduleId(fallbackId);
+            setForceShowForm(true);
+          }}
+          className="bg-[#E50914] text-white px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 shadow-sm active:scale-95 transition"
+        >
+          <Plus size={12} /> Add Report
+        </button>
       </div>
 
       {success ? (

@@ -9,7 +9,8 @@ const Approvals: React.FC = () => {
     expenses, reviewExpenseClaim,
     payrollRuns, approvePayrollRun,
     quotations, updateQuotationStatus,
-    invoices, issueInvoice
+    invoices, issueInvoice,
+    trainers, updateTrainerDocumentStatus
   } = useDatabase();
 
   // 1. Pending schedule requests
@@ -30,13 +31,21 @@ const Approvals: React.FC = () => {
   // 6. Pending Invoices
   const pendingInvoices = invoices.filter(i => i.status === 'Draft');
 
+  // 7. Pending Trainer Compliance Documents
+  const pendingDocs = trainers.flatMap(t => 
+    (t.documents || [])
+      .filter(d => d.status === 'Review' || d.status === 'Draft')
+      .map(d => ({ trainer: t, doc: d }))
+  );
+
   const totalPending = 
     pendingSchedules.length + 
     pendingAttendance.length + 
     pendingExpenses.length + 
     pendingPayroll.length + 
     pendingQuotations.length + 
-    pendingInvoices.length;
+    pendingInvoices.length +
+    pendingDocs.length;
 
   return (
     <div className="space-y-6 text-slate-700 dark:text-slate-350 transition-colors duration-200">
@@ -156,7 +165,12 @@ const Approvals: React.FC = () => {
                         <Check size={12} />
                       </button>
                       <button
-                        onClick={() => reviewExpenseClaim(exp.id, 'Rejected')}
+                        onClick={() => {
+                          const remarks = window.prompt('Please provide rejection remarks / reason for this claim:');
+                          if (remarks !== null) {
+                            reviewExpenseClaim(exp.id, 'Rejected', remarks.trim() || 'Claim rejected via Central Approval Console.');
+                          }
+                        }}
                         className="p-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded transition shadow-sm"
                         title="Reject Claim"
                       >
@@ -249,6 +263,48 @@ const Approvals: React.FC = () => {
                     >
                       Issue Invoice
                     </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 7. Trainer Documents */}
+          {pendingDocs.length > 0 && (
+            <div className="bg-white dark:bg-zinc-900 border border-slate-150 dark:border-zinc-800 rounded-2xl p-5 space-y-4 shadow-sm">
+              <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider flex justify-between items-center border-b border-slate-100 dark:border-zinc-800 pb-2 font-sans">
+                <span>Trainer Documents for Verification</span>
+                <span className="bg-purple-600 text-white text-[9px] font-black rounded-full px-2 py-0.5">{pendingDocs.length}</span>
+              </h3>
+              <div className="space-y-3 max-h-60 overflow-y-auto custom-scrollbar pr-1">
+                {pendingDocs.map(({ trainer: tr, doc: d }, idx) => (
+                  <div key={`${tr.id}-${d.documentNumber}-${idx}`} className="bg-slate-50 dark:bg-zinc-950 border border-slate-150 dark:border-zinc-855 rounded-xl p-3 flex justify-between items-center gap-3 shadow-sm">
+                    <div className="space-y-0.5 min-w-0">
+                      <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{tr.name}</p>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{d.name} ({d.category})</p>
+                      <p className="text-[9px] font-mono text-purple-600 dark:text-purple-400">Ref: {d.documentNumber}</p>
+                    </div>
+                    <div className="flex gap-1.5 shrink-0">
+                      <button
+                        onClick={() => updateTrainerDocumentStatus(tr.id, d.documentNumber, 'Approved')}
+                        className="p-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded transition shadow-sm"
+                        title="Approve Document"
+                      >
+                        <Check size={12} />
+                      </button>
+                      <button
+                        onClick={() => {
+                          const remarks = window.prompt('Provide rejection remarks for this document:');
+                          if (remarks !== null) {
+                            updateTrainerDocumentStatus(tr.id, d.documentNumber, 'Rejected', remarks.trim() || 'Document rejected.');
+                          }
+                        }}
+                        className="p-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded transition shadow-sm"
+                        title="Reject Document"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

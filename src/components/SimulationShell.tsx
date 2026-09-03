@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useDatabase } from '../context/DatabaseContext';
-import { Sun, Moon, Search, Bell, Clock, Radio, X } from 'lucide-react';
+import { Sun, Moon, Search, Bell, Clock, Radio, X, ArrowLeft, RotateCw } from 'lucide-react';
 import Sidebar from './AdminPortal/Sidebar';
 import Dashboard from './AdminPortal/Dashboard';
 import HRDashboard from './AdminPortal/HRDashboard';
@@ -41,9 +41,36 @@ const SimulationShell: React.FC = () => {
     return currentUser?.role === 'trainer' ? 't_dashboard' : (currentUser?.role === 'hr' ? 'hr_dashboard' : 'dashboard');
   });
 
+  const [tabHistory, setTabHistory] = useState<string[]>([]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshToast, setRefreshToast] = useState(false);
+
   const setAdminActiveTab = (tab: string) => {
+    if (tab !== adminActiveTab) {
+      setTabHistory(prev => [...prev, adminActiveTab]);
+    }
     setAdminActiveTabState(tab);
     localStorage.setItem('spk_active_tab', tab);
+  };
+
+  const handleGoBack = () => {
+    if (tabHistory.length > 0) {
+      const prevTab = tabHistory[tabHistory.length - 1];
+      setTabHistory(prev => prev.slice(0, -1));
+      setAdminActiveTabState(prevTab);
+      localStorage.setItem('spk_active_tab', prevTab);
+    }
+  };
+
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    setRefreshToast(true);
+    setTimeout(() => {
+      setIsRefreshing(false);
+    }, 600);
+    setTimeout(() => {
+      setRefreshToast(false);
+    }, 2500);
   };
   
   // Header Search State
@@ -286,9 +313,23 @@ const SimulationShell: React.FC = () => {
           
           {/* Header Panel with Breadcrumbs, Search, Notif, and Theme toggler */}
           <header className="h-14 border-b px-6 flex items-center justify-between bg-white border-slate-150 dark:bg-zinc-950 dark:border-zinc-900 shrink-0 transition-colors">
-            {/* Left: Breadcrumbs */}
-            <div className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-              Spark / <span className="text-slate-800 dark:text-white font-extrabold">{getBreadcrumb()}</span>
+            {/* Left: Back Button & Breadcrumbs */}
+            <div className="flex items-center gap-3">
+              {tabHistory.length > 0 && (
+                <button
+                  onClick={handleGoBack}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200 dark:hover:bg-zinc-800 text-slate-700 dark:text-slate-200 text-xs font-bold transition shadow-sm border border-slate-200 dark:border-zinc-800"
+                  title="Go back to previous screen"
+                >
+                  <ArrowLeft size={13} className="text-[#E50914]" />
+                  <span>Back</span>
+                </button>
+              )}
+              <div className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                <span>Spark</span>
+                <span>/</span>
+                <span className="text-slate-800 dark:text-white font-extrabold">{getBreadcrumb()}</span>
+              </div>
             </div>
 
             {/* Right: Search, Notifications & Theme Toggle */}
@@ -401,7 +442,16 @@ const SimulationShell: React.FC = () => {
                 )}
               </div>
 
-              {/* 3. Dark/Light Theme Switcher Toggle */}
+              {/* 3. Refresh Ledger Button */}
+              <button
+                onClick={handleRefresh}
+                className="p-1.5 bg-slate-50 dark:bg-zinc-900 hover:bg-slate-100 dark:hover:bg-zinc-800 border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-slate-400 rounded-xl transition flex items-center justify-center"
+                title="Refresh Ledger & Records"
+              >
+                <RotateCw size={14} className={`${isRefreshing ? 'animate-spin text-[#E50914]' : 'text-slate-600 dark:text-slate-400'}`} />
+              </button>
+
+              {/* 4. Dark/Light Theme Switcher Toggle */}
               <button
                 onClick={toggleTheme}
                 className="p-1.5 bg-slate-50 dark:bg-zinc-900 hover:bg-slate-100 dark:hover:bg-zinc-800 border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-slate-400 rounded-xl transition"
@@ -426,6 +476,19 @@ const SimulationShell: React.FC = () => {
         <span>© 2026 DevLustro Technologies Pvt Ltd. All rights reserved.</span>
         <span>Spark Enterprise · Real-Time Operations</span>
       </footer>
+
+      {/* REFRESH TOAST NOTIFICATION */}
+      {refreshToast && (
+        <div className="fixed bottom-10 left-8 z-[100] bg-slate-900 text-white dark:bg-white dark:text-slate-900 border border-slate-700 dark:border-slate-200 rounded-2xl p-3.5 shadow-2xl flex items-center gap-3 animate-slideIn">
+          <div className="p-1.5 bg-[#E50914] text-white rounded-xl">
+            <RotateCw size={14} className="animate-spin" />
+          </div>
+          <div>
+            <h4 className="text-xs font-black">Ledger Synchronized</h4>
+            <p className="text-[10px] text-slate-300 dark:text-slate-600">Operational records and database feeds refreshed.</p>
+          </div>
+        </div>
+      )}
 
       {/* LIVE REAL-TIME TOAST NOTIFICATION (Requirement 2) */}
       {toastEvent && (

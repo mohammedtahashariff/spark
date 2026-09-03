@@ -27,6 +27,7 @@ export interface TrainerDocument {
   documentNumber: string;
   uploadedAt: string;
   expiryDate?: string;
+  rejectionRemarks?: string;
 }
 
 export interface Trainer {
@@ -154,6 +155,7 @@ export interface ExpenseClaim {
   createdAt: string;
   reviewedBy?: string;
   reviewedAt?: string;
+  rejectionRemarks?: string;
 }
 
 export interface Payslip {

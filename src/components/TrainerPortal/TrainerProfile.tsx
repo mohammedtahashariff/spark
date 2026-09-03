@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useDatabase } from '../../context/DatabaseContext';
 import { 
   FileText, CheckCircle, Clock, ShieldCheck, Mail, 
@@ -6,6 +6,7 @@ import {
   History, AlertCircle, RefreshCw, X, ExternalLink, FileSpreadsheet
 } from 'lucide-react';
 import type { Trainer } from '../../types';
+import { getPermanentResume, savePermanentResume, type StoredResumeFile } from '../../utils/fileStorage';
 
 const TrainerProfile: React.FC = () => {
   const { currentUser, trainers, uploadTrainerResume } = useDatabase();
@@ -14,7 +15,25 @@ const TrainerProfile: React.FC = () => {
   const [resumeModalOpen, setResumeModalOpen] = useState(false);
   const [modalViewTab, setModalViewTab] = useState<'pdf' | 'overview'>('pdf');
   const [showUploadAlert, setShowUploadAlert] = useState<string | null>(null);
+  const [persistentResume, setPersistentResume] = useState<StoredResumeFile | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Load verified permanent resume from IndexedDB on mount or trainer change
+  useEffect(() => {
+    let isMounted = true;
+    getPermanentResume(trainer.id).then(stored => {
+      if (isMounted && stored) {
+        setPersistentResume(stored);
+      }
+    });
+    return () => { isMounted = false; };
+  }, [trainer.id]);
+
+  const activeResumeName = persistentResume?.name || trainer.resumeName || `${trainer.name.replace(/\s+/g, '_')}_Resume.pdf`;
+  const activeResumeUrl = persistentResume?.url || trainer.resumeUrl;
+  const activeResumeSize = persistentResume?.size || trainer.resumeSize || '1.4 MB';
+  const activeResumeUploadedAt = persistentResume?.uploadedAt || trainer.resumeUploadedAt || '01 Sep 2026';
+  const hasUploadedFile = Boolean(activeResumeUrl && (activeResumeUrl.startsWith('data:') || activeResumeUrl.startsWith('blob:') || activeResumeUrl.startsWith('http')));
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -28,9 +47,9 @@ const TrainerProfile: React.FC = () => {
       return;
     }
 
-    // Size limit: 10MB
-    if (file.size > 10 * 1024 * 1024) {
-      setShowUploadAlert('File size exceeds 10MB limit.');
+    // Size limit: 15MB
+    if (file.size > 15 * 1024 * 1024) {
+      setShowUploadAlert('File size exceeds 15MB limit.');
       return;
     }
 
@@ -38,16 +57,30 @@ const TrainerProfile: React.FC = () => {
       ? `${(file.size / (1024 * 1024)).toFixed(1)} MB` 
       : `${Math.round(file.size / 1024)} KB`;
 
-    // Read real file content as Base64 Data URL for in-browser PDF viewing
+    // Read real file content as Base64 Data URL for permanent in-browser storage & PDF viewing
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       const dataUrl = reader.result as string;
+      const today = new Date().toISOString().split('T')[0];
+      const fileData: StoredResumeFile = {
+        name: file.name,
+        url: dataUrl,
+        size: sizeFormatted,
+        uploadedAt: today
+      };
+
+      // 1. Save permanently to IndexedDB (survives all page reloads & closes)
+      await savePermanentResume(trainer.id, fileData);
+      setPersistentResume(fileData);
+
+      // 2. Dispatch to state context
       uploadTrainerResume(trainer.id, {
         name: file.name,
         url: dataUrl,
         size: sizeFormatted
       });
-      setShowUploadAlert(`Successfully uploaded and loaded ${file.name}`);
+
+      setShowUploadAlert(`Successfully uploaded and permanently stored ${file.name}`);
       setTimeout(() => setShowUploadAlert(null), 3500);
     };
     reader.onerror = () => {
@@ -57,11 +90,11 @@ const TrainerProfile: React.FC = () => {
   };
 
   const handleDownload = () => {
-    const fileName = trainer.resumeName || `${trainer.name.replace(/\s+/g, '_')}_Resume.pdf`;
+    const fileName = activeResumeName;
     
-    if (trainer.resumeUrl && (trainer.resumeUrl.startsWith('data:') || trainer.resumeUrl.startsWith('blob:'))) {
+    if (activeResumeUrl && (activeResumeUrl.startsWith('data:') || activeResumeUrl.startsWith('blob:'))) {
       const link = document.createElement('a');
-      link.href = trainer.resumeUrl;
+      link.href = activeResumeUrl;
       link.download = fileName;
       document.body.appendChild(link);
       link.click();
@@ -82,14 +115,14 @@ const TrainerProfile: React.FC = () => {
   };
 
   const handleOpenInNewTab = () => {
-    if (trainer.resumeUrl && (trainer.resumeUrl.startsWith('data:') || trainer.resumeUrl.startsWith('blob:'))) {
+    if (activeResumeUrl && (activeResumeUrl.startsWith('data:') || activeResumeUrl.startsWith('blob:'))) {
       const win = window.open();
       if (win) {
         win.document.write(`
           <html>
-            <head><title>${trainer.resumeName || 'Resume Preview'}</title></head>
+            <head><title>${activeResumeName}</title></head>
             <body style="margin:0;padding:0;background:#18181b;">
-              <iframe src="${trainer.resumeUrl}" frameborder="0" style="width:100%;height:100vh;border:none;"></iframe>
+              <iframe src="${activeResumeUrl}" frameborder="0" style="width:100%;height:100vh;border:none;"></iframe>
             </body>
           </html>
         `);
@@ -106,8 +139,6 @@ const TrainerProfile: React.FC = () => {
     { id: 'lh2', date: '31 Aug 2026', time: '09:12 AM', device: 'Android Chrome', ipAddress: '103.14.120.45', status: 'Successful' as const },
     { id: 'lh3', date: '30 Aug 2026', time: '02:15 PM', device: 'Chrome / Windows', ipAddress: '103.14.120.45', status: 'Successful' as const }
   ];
-
-  const hasUploadedFile = Boolean(trainer.resumeUrl && (trainer.resumeUrl.startsWith('data:') || trainer.resumeUrl.startsWith('blob:')));
 
   return (
     <div className="space-y-6 text-slate-750 dark:text-slate-350 flex flex-col h-full transition-colors duration-200">
@@ -236,11 +267,11 @@ const TrainerProfile: React.FC = () => {
                   <FileText size={24} />
                 </div>
                 <div>
-                  <h4 className="text-sm font-black text-slate-900 dark:text-white">{trainer.resumeName || 'Resume.pdf'}</h4>
+                  <h4 className="text-sm font-black text-slate-900 dark:text-white">{activeResumeName}</h4>
                   <div className="flex items-center gap-3 text-[11px] text-slate-500 dark:text-slate-455 mt-1 font-semibold">
-                    <span>Uploaded: {trainer.resumeUploadedAt || '01 Sep 2026'}</span>
+                    <span>Uploaded: {activeResumeUploadedAt}</span>
                     <span>•</span>
-                    <span>Size: {trainer.resumeSize || '1.4 MB'}</span>
+                    <span>Size: {activeResumeSize}</span>
                   </div>
                 </div>
               </div>
@@ -357,8 +388,8 @@ const TrainerProfile: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    <span>{trainer.resumeName || 'Resume.pdf'}</span>
-                    <span className="text-[10px] text-slate-400 font-normal">({trainer.resumeSize || '1.4 MB'})</span>
+                    <span>{activeResumeName}</span>
+                    <span className="text-[10px] text-slate-400 font-normal">({activeResumeSize})</span>
                   </h3>
                   <p className="text-[10px] text-slate-500 font-semibold">Verified Enterprise Resume • {trainer.name}</p>
                 </div>
@@ -396,7 +427,7 @@ const TrainerProfile: React.FC = () => {
               {modalViewTab === 'pdf' && hasUploadedFile ? (
                 /* Real PDF Iframe Viewer */
                 <iframe
-                  src={trainer.resumeUrl}
+                  src={activeResumeUrl}
                   title="Trainer Resume PDF"
                   className="w-full h-full min-h-[55vh] border-none bg-white rounded-2xl"
                 />
